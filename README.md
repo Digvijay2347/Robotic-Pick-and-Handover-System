@@ -89,8 +89,8 @@ graph TB
 
 | Phase | Milestone | Status |
 |:---:|---|:---:|
-| **0** | **Environment & Tooling Setup** | 🟡 Pending Approval |
-| **1** | **MJCF Scene & Asset Assembly** | ⚪ Queued |
+| **0** | **Environment & Tooling Setup** | 🟢 Complete |
+| **1** | **MJCF Scene & Asset Assembly** | 🟢 Complete |
 | **2** | **Kinematics & Single-Arm Pick Baseline** | ⚪ Queued |
 | **3** | **Perception & 6-DOF Grasp Planning** | ⚪ Queued |
 | **4** | **Coordinated Dual-Arm Handover FSM** | ⚪ Queued |
