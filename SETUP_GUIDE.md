@@ -1,0 +1,195 @@
+# Dual-Arm Robotic Pick-and-Handover System
+## Simulation Setup & Interactive User Guide
+
+> **Current Status**: Phase 0 (Environment) & Phase 1 (Scene & Assets) Complete  
+> **Target Environment**: Windows 11 · Python 3.11 · MuJoCo 3.16.0 · Intel Arc 140V (8GB)  
+> **Repository**: [`Digvijay2347/Robotic-Pick-and-Handover-System`](https://github.com/Digvijay2347/Robotic-Pick-and-Handover-System)
+
+---
+
+## 1. Quickstart: Launch the Interactive 3D Viewer
+
+You have two ways to inspect the full simulation environment in real time:
+
+### Option A: Official MuJoCo Native Interactive Viewer (Recommended)
+This launches MuJoCo's full native graphical interface with interactive physics, mouse-drag perturbation, rendering toggles, and keyframe controls:
+
+```powershell
+# 1. Open PowerShell in the project directory
+cd "C:\Users\Digvijay singh\OneDrive\Desktop\Motion\prod2"
+
+# 2. Activate the virtual environment
+.venv\Scripts\activate
+
+# 3. Launch the MuJoCo interactive GUI viewer
+python -m mujoco.viewer --mjcf=models/dual_ur10e_scene.xml
+```
+
+---
+
+### Option B: Diagnostic Scene Runner with Viewer
+This executes the automated health checks (actuators, sites, offscreen camera rendering, physics stability at 6,500+ Hz) and then opens the 3D viewer:
+
+```powershell
+# In activated terminal:
+python scripts/01_test_scene.py --viewer
+```
+
+---
+
+## 2. Interactive Viewer Controls & Shortcuts
+
+When the MuJoCo 3D viewer window opens, you can interact with the robot, shelf, and objects using mouse and keyboard shortcuts:
+
+| Action | Control / Shortcut | Description |
+|---|---|---|
+| **Rotate Camera** | `Left Click + Drag` | Orbit around the current focal point. |
+| **Pan Camera** | `Shift + Right Click + Drag` *(or Middle Click)* | Move camera horizontally and vertically. |
+| **Zoom In / Out** | `Right Click + Drag` *(or Mouse Scroll)* | Smooth zoom in/out. |
+| **Focus on Element** | `Double Left Click` | Double-click any robot link, shelf, or object to center the camera on it. |
+| **Pause / Unpause Physics** | `Spacebar` | Freezes or resumes real-time physics simulation. |
+| **Step Single Frame** | `Page Down` | Advances physics by one timestep (`0.002s`) when paused. |
+| **Slow Motion** | `Shift + Down Arrow` | Slows simulation down for detailed contact inspection. |
+| **Speed Up** | `Shift + Up Arrow` | Accelerates simulation speed. |
+| **Apply Perturbation Force** | `Ctrl + Right Click + Drag` | **Grab and pull** any object or robot link in real time to test physics, friction, and gravity! |
+| **Apply Torque** | `Ctrl + Left Click + Drag` | Apply rotational torque to bodies. |
+| **Toggle Side UI Panels** | `Tab` | Toggles the MuJoCo configuration sidebar. |
+| **Reset Simulation** | `Backspace` | Resets the simulation to the initial scene state. |
+| **Reload MJCF** | `Ctrl + L` | Live reloads the XML model if you modify scene files. |
+
+> [!TIP]
+> **Try this in the viewer:**
+> 1. Press `Space` to let physics settle.
+> 2. Hold `Ctrl` + `Right Click + Drag` on the **red target box** on the shelf to lift or slide it around. Watch it fall back naturally under realistic gravity and friction!
+> 3. Double-click the **handover cyan site** in the center to zoom straight into the shared transfer zone.
+
+---
+
+## 3. What is Currently in the Simulation World?
+
+The simulation scene (`models/dual_ur10e_scene.xml`) consists of:
+
+```
+                    ┌───────────────────────────────────────────┐
+                    │          4×3 WALL SHELF (Wood)            │
+                    │  ┌─────────┬─────────┬─────────┬─────────┐ │
+                    │  │ Row 3   │         │         │         │ │
+                    │  ├─────────┼─────────┼─────────┼─────────┤ │
+                    │  │ 📦 Red  │ 🥫 Green│         │         │ │  ← Target & Can
+                    │  ├─────────┼─────────┼─────────┼─────────┤ │
+                    │  │ 🧴 Blue │         │         │ 🎲 Yellow│ │  ← Bottle & Cube
+                    │  └─────────┴─────────┴─────────┴─────────┘ │
+                    └───────────────────────────────────────────┘
+                                          ↑
+                             ARM 1 Reach Corridor (+Y)
+                                          │
+                     ┌────────────────────┼────────────────────┐
+                     │                                         │
+       ┌──────────┐  │             ★ HANDOVER SITE             │  ┌──────────┐
+       │  ARM 2   │──┼             [0.0, 0.1, 1.05]            ├──│  ARM 1   │
+       │ Receiver │  │                                         │  │  Giver   │
+       │ (Amber)  │  └────────────────────┬────────────────────┘  │  (Blue)  │
+       └──────────┘                       │                       └──────────┘
+                                          │
+                             ARM 2 Reach Corridor (-Y)
+                                          ↓
+                             ┌─────────────────────────┐
+                             │    STORAGE BIN 📥       │
+                             │ (Chamfered Blue Basin)  │
+                             └─────────────────────────┘
+```
+
+### Detailed Component Specifications
+
+#### 1. Arm 1 (Giver — Right Side, Elevated Pedestal)
+- **Base Position**: `[0.6, 0.2, 0.75]` m, elevated on a cylindrical pedestal (`z = 0.375` m).
+- **Orientation**: Rotated $90^\circ$ facing the shelf (`+Y` direction).
+- **Visual Accent**: Iconic UR collaborative blue joint caps (`ur_blue`).
+- **End-Effector**: Fully articulated **Robotiq 2F-85** parallel-jaw adaptive gripper.
+- **EE Site**: `arm1_ee_site` centered exactly between the silicone finger pads (`pos="0 0 0.145"`).
+- **Sensors**: Forward-looking wrist camera (`arm1_wrist_cam`) mounted on the flange.
+
+#### 2. Arm 2 (Receiver — Left Side, Elevated Pedestal)
+- **Base Position**: `[-0.6, 0.2, 0.75]` m, elevated on a cylindrical pedestal (`z = 0.375` m).
+- **Orientation**: Rotated $-90^\circ$ facing the storage bin (`-Y` direction).
+- **Visual Accent**: High-visibility amber/orange joint caps (`ur_amber`) to easily distinguish Arm 1 from Arm 2.
+- **End-Effector**: Fully articulated **Robotiq 2F-85** parallel-jaw adaptive gripper.
+- **EE Site**: `arm2_ee_site` centered between the silicone finger pads.
+- **Sensors**: Forward-looking wrist camera (`arm2_wrist_cam`) mounted on the flange.
+
+#### 3. Wall Shelf / Cupboard ([`models/shelf.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/shelf.xml))
+- **Placement**: `pos="0.0, 1.2, 0.0"` m (centered in front of the arms).
+- **Compartments**: 12 independent compartments (4 columns × 3 shelf levels).
+- **Dimensions**: Width $1.2\text{ m}$, Depth $0.35\text{ m}$, Height $0.9\text{ m}$.
+- **Materials**: Natural wood grain shelf plates with dark graphite vertical dividers and support legs.
+
+#### 4. Physical Manipulable Objects ([`models/objects.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/objects.xml))
+- 📦 **Target Red Box** (`target_object`): Size $5\times 5\times 10\text{ cm}$, mass $0.15\text{ kg}$, high friction coefficient ($1.2$). Sits on Row 2, Column 1 (`[-0.15, 1.05, 0.90]`).
+- 🥫 **Green Soda Can** (`can_object`): Radius $2.8\text{ cm}$, height $9.6\text{ cm}$, mass $0.12\text{ kg}$. Sits on Row 2, Column 2 (`[0.15, 1.05, 0.90]`).
+- 🧴 **Blue Flask/Bottle** (`bottle_object`): Dual cylinder geometry with narrow neck, mass $0.10\text{ kg}$. Sits on Row 1, Column 0 (`[-0.45, 1.05, 0.54]`).
+- 🎲 **Yellow Cube** (`cube_object`): Size $5\times 5\times 5\text{ cm}$, mass $0.08\text{ kg}$. Sits on Row 1, Column 3 (`[0.45, 1.05, 0.54]`).
+
+#### 5. Storage Drop Bin ([`models/bin.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/bin.xml))
+- **Placement**: `pos="0.0, -0.8, 0.0"` m (behind the arms).
+- **Features**: 4 chamfered slanted guide rims along the top rim so dropped objects slide securely into the basin.
+- **Target Site**: `bin_drop_target` marked inside the bottom plate.
+
+#### 6. 14-DOF Actuator Mapping
+| Index | Actuator Name | Joint Controlled | Type | Control Range |
+|:---:|---|---|:---:|:---:|
+| `00` | `arm1_j0_pan` | `arm1_shoulder_pan_joint` | Position | $[-2\pi, +2\pi]$ |
+| `01` | `arm1_j1_lift` | `arm1_shoulder_lift_joint` | Position | $[-2\pi, +2\pi]$ |
+| `02` | `arm1_j2_elbow` | `arm1_elbow_joint` | Position | $[-\pi, +\pi]$ |
+| `03` | `arm1_j3_wrist1` | `arm1_wrist_1_joint` | Position | $[-2\pi, +2\pi]$ |
+| `04` | `arm1_j4_wrist2` | `arm1_wrist_2_joint` | Position | $[-2\pi, +2\pi]$ |
+| `05` | `arm1_j5_wrist3` | `arm1_wrist_3_joint` | Position | $[-2\pi, +2\pi]$ |
+| `06` | `arm1_gripper` | `arm1_split` (tendon) | Force/Pos | $[0, 255]$ ($0=\text{open}, 255=\text{close}$) |
+| `07` | `arm2_j0_pan` | `arm2_shoulder_pan_joint` | Position | $[-2\pi, +2\pi]$ |
+| `08` | `arm2_j1_lift` | `arm2_shoulder_lift_joint` | Position | $[-2\pi, +2\pi]$ |
+| `09` | `arm2_j2_elbow` | `arm2_elbow_joint` | Position | $[-\pi, +\pi]$ |
+| `10` | `arm2_j3_wrist1` | `arm2_wrist_1_joint` | Position | $[-2\pi, +2\pi]$ |
+| `11` | `arm2_j4_wrist2` | `arm2_wrist_2_joint` | Position | $[-2\pi, +2\pi]$ |
+| `12` | `arm2_j5_wrist3` | `arm2_wrist_3_joint` | Position | $[-2\pi, +2\pi]$ |
+| `13` | `arm2_gripper` | `arm2_split` (tendon) | Force/Pos | $[0, 255]$ ($0=\text{open}, 255=\text{close}$) |
+
+---
+
+## 4. How to Inspect Camera Sensor Feeds
+
+The system includes 4 camera views that are captured offscreen during simulation:
+
+1. **`overhead_cam`** ($640\times 480$, $75^\circ$ FOV): Top-down bird's-eye perspective of the entire arena.
+2. **`shelf_cam`** ($640\times 480$, $60^\circ$ FOV): Direct depth and RGB view focused on the shelf compartments.
+3. **`arm1_wrist_cam`** ($640\times 480$, $75^\circ$ FOV): First-person view looking forward from Arm 1's gripper.
+4. **`arm2_wrist_cam`** ($640\times 480$, $75^\circ$ FOV): First-person view looking forward from Arm 2's gripper.
+
+Snapshots from all 4 sensors are automatically generated in [`recordings/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/):
+- [`recordings/overhead_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/overhead_cam.png)
+- [`recordings/shelf_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/shelf_cam.png)
+- [`recordings/arm1_wrist_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/arm1_wrist_cam.png)
+- [`recordings/arm2_wrist_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/arm2_wrist_cam.png)
+
+To re-capture fresh snapshots at any time, run:
+```powershell
+python scripts/01_test_scene.py
+```
+
+---
+
+## 5. Troubleshooting & FAQ
+
+#### Q: The viewer window closes immediately or fails to launch.
+Ensure the virtual environment is activated (`.venv\Scripts\activate`). If running through remote desktop or SSH, MuJoCo requires an active Windows desktop session for OpenGL context creation.
+
+#### Q: How fast is physics stepping?
+The physics timestep is set to $0.002\text{ s}$ ($500\text{ Hz}$). On this system's multi-threaded CPU and Intel Arc GPU, MuJoCo steps at over **$6,500\text{ Hz}$** ($\approx 13\times$ faster than real-time), enabling fast demonstration collection and rollouts.
+
+---
+
+## 6. Next Step in Roadmap: Phase 2
+
+Once you have explored the scene in the 3D viewer, we will proceed to **Phase 2**:
+- Implement Damped Least Squares (DLS) Jacobian IK solver with null-space biasing (`control/kinematics.py`).
+- Implement 5th-order minimum-jerk Cartesian trajectory generator (`control/trajectory.py`).
+- Implement dual gripper contact force verifier (`control/dual_arm_controller.py`).
+- Execute autonomous test: Arm 1 approaches the shelf, cleanly grasps the red box, and lifts it out without wall collisions.
