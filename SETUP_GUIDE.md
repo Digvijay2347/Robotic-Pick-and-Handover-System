@@ -1,44 +1,47 @@
 # Dual-Arm Robotic Pick-and-Handover System
 ## Simulation Setup & Interactive User Guide
 
-> **Current Status**: Phase 0 (Environment) & Phase 1 (Scene & Assets) Complete  
+> **Current Status**: Phase 0 (Environment), Phase 1 (Scene & Assets), and Phase 2 (Kinematics & Single-Arm Pick) Complete 🟢  
 > **Target Environment**: Windows 11 · Python 3.11 · MuJoCo 3.16.0 · Intel Arc 140V (8GB)  
 > **Repository**: [`Digvijay2347/Robotic-Pick-and-Handover-System`](https://github.com/Digvijay2347/Robotic-Pick-and-Handover-System)
 
 ---
 
-## 1. Quickstart: Launch the Interactive 3D Viewer
+## 1. Quickstart: Run the Autonomous Single-Arm Pick in 3D Viewer
 
-You have two ways to inspect the full simulation environment in real time:
+To watch Arm 1 autonomously reach into the wall shelf, grasp the red box with its Robotiq 2F-85 gripper, lift it, and extract it into open space in real time:
 
-### Option A: Direct Command (No Activation Needed - Works Instantly)
-Run Python directly from `.venv` to avoid Windows script execution policy restrictions:
+### Interactive 3D Viewer Mode (Watch Live):
+```powershell
+.\.venv\Scripts\python scripts/02_test_ik_reach.py --viewer
+```
 
+### Fast Headless Benchmark:
+```powershell
+.\.venv\Scripts\python scripts/02_test_ik_reach.py
+```
+
+---
+
+## 2. Inspecting the Simulation Scene & Passive Viewer
+
+You can also launch a freeform passive viewer to freely manipulate the dual UR10e arms, shelf, and objects with your mouse:
+
+### Option A: Direct Command (No Activation Needed)
 ```powershell
 .\.venv\Scripts\python -m mujoco.viewer --mjcf=models/dual_ur10e_scene.xml
 ```
 
----
-
 ### Option B: Enable PowerShell Script Execution & Activate
-If PowerShell blocks `.venv\Scripts\activate` (`PSSecurityException`), enable script execution for your session:
-
 ```powershell
-# Allow scripts for current terminal session:
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-
-# Now activate:
 .venv\Scripts\activate
-
-# Launch viewer:
 python -m mujoco.viewer --mjcf=models/dual_ur10e_scene.xml
 ```
 
----
-
-### Option C: Diagnostic Scene Runner with Viewer
+### Option C: Scene Health & Sensor Test
 ```powershell
-.\.venv\Scripts\python scripts/01_test_scene.py --viewer
+.\.venv\Scripts\python scripts/01_test_scene.py
 ```
 
 ---
@@ -192,10 +195,29 @@ The physics timestep is set to $0.002\text{ s}$ ($500\text{ Hz}$). On this syste
 
 ---
 
-## 6. Next Step in Roadmap: Phase 2
+## 6. Phase 2 Architecture & Autonomous Pick Pipeline
 
-Once you have explored the scene in the 3D viewer, we will proceed to **Phase 2**:
-- Implement Damped Least Squares (DLS) Jacobian IK solver with null-space biasing (`control/kinematics.py`).
-- Implement 5th-order minimum-jerk Cartesian trajectory generator (`control/trajectory.py`).
-- Implement dual gripper contact force verifier (`control/dual_arm_controller.py`).
-- Execute autonomous test: Arm 1 approaches the shelf, cleanly grasps the red box, and lifts it out without wall collisions.
+In Phase 2, we implemented the complete autonomous kinematic and Cartesian control stack:
+- **[`control/kinematics.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py)**: Damped Least Squares (DLS) Jacobian IK solver, closed-loop numeric iteration, automatic 2π branch unwrapping, null-space postural biasing, and physical joint limit clamping.
+- **[`control/trajectory.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py)**: 5th-order minimum-jerk quintic polynomial interpolator (`s(tau) = 10 tau^3 - 15 tau^4 + 6 tau^5`) and SLERP orientation interpolator.
+- **[`control/dual_arm_controller.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py)**: Unified 14-DOF actuator coordinator, normalized gripper command interface `[0.0, 1.0]`, and MuJoCo contact dynamics normal force verifier (`check_grasp`).
+- **[`control/collision_checker.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/collision_checker.py)**: Inter-arm proximity and link-to-shelf clearance monitor.
+- **[`scripts/02_test_ik_reach.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/02_test_ik_reach.py)**: End-to-end 6-stage autonomous pick test.
+
+### Pick Pipeline Stages:
+1. `1_PREGRASP` (2.0s): Arm moves smoothly from home resting pose to 15cm standoff in front of shelf compartment.
+2. `2_APPROACH` (1.5s): Horizontal antipodal alignment into the compartment, centering finger pads around the box.
+3. `3_GRASP` (1.0s): Closes gripper onto the object; verifies firm antipodal normal contact force (`276.69 N`).
+4. `4_LIFT` (1.5s): Smooth vertical lift (+12cm) to break static friction with shelf surface.
+5. `5_RETRACT` (2.0s): Horizontally extracts object out of the shelf compartment into free space.
+6. `6_HOLD` (1.5s): Holds object steady in free space; final clearance is verified (+12.8cm, zero collisions).
+
+---
+
+## 7. Next Step in Roadmap: Phase 3 (Perception & 6-DOF Grasp Planning)
+
+With the single-arm pick baseline fully proven, the next phase will introduce:
+- **Simulated RGB-D Sensing**: Process camera depth buffers from `overhead_cam` and `shelf_cam`.
+- **Point Cloud Generation**: Generate segmented 3D point cloud of shelf compartments and objects.
+- **6-DOF Grasp Generation**: Open3D antipodal surface-normal grasp candidate sampler and GraspGen DiT interface.
+- **Collision-Free Approach Vectors**: Automatically rank and filter grasp candidates against shelf dividers.

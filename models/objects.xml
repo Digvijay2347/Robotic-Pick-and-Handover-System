@@ -1,7 +1,7 @@
 <mujoco model="manipulation_objects">
   <worldbody>
-    <!-- Primary Pick Target (Red Box) on Row 2 (Middle), Col 1 -->
-    <body name="target_object" pos="-0.15 1.05 0.90">
+    <!-- Primary Pick Target (Red Box) on Row 2 (Middle), Col 3 -->
+    <body name="target_object" pos="0.45 1.05 0.90">
       <freejoint name="target_object_joint"/>
       <inertial pos="0 0 0" mass="0.15" diaginertia="0.00015 0.00015 0.00008"/>
       <geom name="target_geom" type="box" size="0.025 0.025 0.05" material="target_box_mat"
@@ -30,8 +30,8 @@
             contype="1" conaffinity="1" friction="1.1 0.01 0.0002"/>
     </body>
 
-    <!-- Small Yellow Cube on Row 1 (Bottom), Col 3 -->
-    <body name="cube_object" pos="0.45 1.05 0.54">
+    <!-- Small Yellow Cube on Row 2 (Middle), Col 1 -->
+    <body name="cube_object" pos="-0.15 1.05 0.90">
       <freejoint name="cube_object_joint"/>
       <inertial pos="0 0 0" mass="0.08" diaginertia="0.00008 0.00008 0.00008"/>
       <geom name="cube_geom" type="box" size="0.025 0.025 0.025" material="cube_mat"

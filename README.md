@@ -91,7 +91,7 @@ graph TB
 |:---:|---|:---:|
 | **0** | **Environment & Tooling Setup** | 🟢 Complete |
 | **1** | **MJCF Scene & Asset Assembly** | 🟢 Complete |
-| **2** | **Kinematics & Single-Arm Pick Baseline** | ⚪ Queued |
+| **2** | **Kinematics & Single-Arm Pick Baseline** | 🟢 Complete |
 | **3** | **Perception & 6-DOF Grasp Planning** | ⚪ Queued |
 | **4** | **Coordinated Dual-Arm Handover FSM** | ⚪ Queued |
 | **5** | **Gym-ALOHA Environment Wrapper** | ⚪ Queued |
@@ -99,7 +99,7 @@ graph TB
 | **7** | **Policy Training (ACT / LeRobot)** | ⚪ Queued |
 | **8** | **Benchmarking, Telemetry & Polish** | ⚪ Queued |
 
-For full technical specifications of each phase, see [`implementation_plan.md`](implementation_plan.md).
+For full technical specifications of each phase, see [`implementation_plan.md`](implementation_plan.md) and [`SETUP_GUIDE.md`](SETUP_GUIDE.md).
 
 ---
 
@@ -124,6 +124,15 @@ source .venv/bin/activate
 
 # Install dependencies
 pip install -r requirements.txt
+```
+
+### Run the Autonomous Single-Arm Pick Baseline
+```powershell
+# Interactive 3D Viewer Mode (watch live in MuJoCo):
+.\.venv\Scripts\python scripts/02_test_ik_reach.py --viewer
+
+# Headless fast physics benchmark:
+.\.venv\Scripts\python scripts/02_test_ik_reach.py
 ```
 
 ---

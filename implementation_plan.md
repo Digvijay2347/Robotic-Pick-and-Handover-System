@@ -124,7 +124,7 @@ graph TD
 
 ---
 
-### Phase 0: Environment Setup & Dependency Management
+### Phase 0: Environment Setup & Dependency Management 🟢 Complete
 
 #### Objective
 Establish a clean, reproducible Python environment on Windows, install required packages, configure rendering backends, and organize the project folder structure.
@@ -147,7 +147,7 @@ Establish a clean, reproducible Python environment on Windows, install required 
 
 ---
 
-### Phase 1: High-Fidelity MuJoCo Scene & Asset Assembly
+### Phase 1: High-Fidelity MuJoCo Scene & Asset Assembly 🟢 Complete
 
 #### Objective
 Build the complete physics world in MJCF containing two UR10e arms, two Robotiq 2F-85 grippers, a 4×3 multi-compartment shelf, a storage bin, diverse manipulable objects, and 4 camera sensors.
@@ -181,7 +181,7 @@ Build the complete physics world in MJCF containing two UR10e arms, two Robotiq 
 
 ---
 
-### Phase 2: Kinematics, Cartesian Control & Single-Arm Pick Baseline
+### Phase 2: Kinematics, Cartesian Control & Single-Arm Pick Baseline 🟢 Complete
 
 #### Objective
 Implement forward kinematics, numerical inverse kinematics (IK) with joint-limit damping, Cartesian trajectory interpolation, and verify that Arm 1 can reliably pick an object from the shelf using known ground-truth coordinates.
