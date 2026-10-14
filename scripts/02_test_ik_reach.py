@@ -156,6 +156,9 @@ def main():
         nonlocal sim_time, current_stage_idx, stage_start_time, current_traj
         nonlocal max_tracking_err, grasp_confirmed, pick_successful
 
+        if current_stage_idx >= len(stages):
+            return True
+
         stage = stages[current_stage_idx]
         t_in_stage = sim_time - stage_start_time
 
@@ -215,14 +218,16 @@ def main():
                         next_stage["q_from"], next_stage["q_to"],
                         duration=next_stage["duration"]
                     )
-            return False  # Not finished all stages
-        return current_stage_idx >= len(stages)
+                return False
+            else:
+                return True
+        return False
 
     # 4. Execution Loop
     print(f"[STAGE] Entering {stages[0]['name']} (duration={stages[0]['duration']}s)...")
 
     if args.viewer:
-        print("[INFO] Running in interactive viewer. Close viewer to end early.\n")
+        print("[INFO] Running in interactive viewer mode.\n")
         with mujoco.viewer.launch_passive(model, data) as viewer:
             while viewer.is_running():
                 t0 = time.time()
@@ -230,8 +235,12 @@ def main():
                 viewer.sync()
 
                 if finished:
-                    print("\n[COMPLETE] All stages finished. Holding in viewer...")
+                    print("\n[COMPLETE] All stages finished! Robot is holding the object steady in mid-air.")
+                    print("[INFO] The 3D viewer remains open for inspection. Close the viewer window when you wish to exit.\n")
                     while viewer.is_running():
+                        controller.set_arm_joint_targets(1, q_retract)
+                        controller.set_gripper(1, 0.75)
+                        controller.set_gripper(2, 0.0)
                         mujoco.mj_step(model, data)
                         viewer.sync()
                         time.sleep(dt)
