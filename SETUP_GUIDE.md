@@ -11,28 +11,34 @@
 
 You have two ways to inspect the full simulation environment in real time:
 
-### Option A: Official MuJoCo Native Interactive Viewer (Recommended)
-This launches MuJoCo's full native graphical interface with interactive physics, mouse-drag perturbation, rendering toggles, and keyframe controls:
+### Option A: Direct Command (No Activation Needed - Works Instantly)
+Run Python directly from `.venv` to avoid Windows script execution policy restrictions:
 
 ```powershell
-# 1. Open PowerShell in the project directory
-cd "C:\Users\Digvijay singh\OneDrive\Desktop\Motion\prod2"
+.\.venv\Scripts\python -m mujoco.viewer --mjcf=models/dual_ur10e_scene.xml
+```
 
-# 2. Activate the virtual environment
+---
+
+### Option B: Enable PowerShell Script Execution & Activate
+If PowerShell blocks `.venv\Scripts\activate` (`PSSecurityException`), enable script execution for your session:
+
+```powershell
+# Allow scripts for current terminal session:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# Now activate:
 .venv\Scripts\activate
 
-# 3. Launch the MuJoCo interactive GUI viewer
+# Launch viewer:
 python -m mujoco.viewer --mjcf=models/dual_ur10e_scene.xml
 ```
 
 ---
 
-### Option B: Diagnostic Scene Runner with Viewer
-This executes the automated health checks (actuators, sites, offscreen camera rendering, physics stability at 6,500+ Hz) and then opens the 3D viewer:
-
+### Option C: Diagnostic Scene Runner with Viewer
 ```powershell
-# In activated terminal:
-python scripts/01_test_scene.py --viewer
+.\.venv\Scripts\python scripts/01_test_scene.py --viewer
 ```
 
 ---
