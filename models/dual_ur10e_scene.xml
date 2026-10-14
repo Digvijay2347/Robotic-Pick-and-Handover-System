@@ -212,7 +212,7 @@
                   <camera name="arm1_wrist_cam" pos="0.05 0.14 0.03" xyaxes="0 1 0 0 0 1" fovy="75"/>
 
                   <!-- Attached Robotiq 2F-85 Gripper -->
-                  <body name="arm1_gripper_mount" pos="0 0.1 0" quat="0.7071068 0.7071068 0 0" childclass="2f85">
+                  <body name="arm1_gripper_mount" pos="0 0.1 0" quat="-0.7071068 0.7071068 0 0" childclass="2f85">
                     <geom class="grip_visual" mesh="2f85_base_mount" material="grip_black"/>
                     <geom class="grip_collision" mesh="2f85_base_mount"/>
                     <body name="arm1_gripper_base" pos="0 0 0.0038" quat="1 0 0 -1">
@@ -357,7 +357,7 @@
                   <camera name="arm2_wrist_cam" pos="0.05 0.14 0.03" xyaxes="0 1 0 0 0 1" fovy="75"/>
 
                   <!-- Attached Robotiq 2F-85 Gripper -->
-                  <body name="arm2_gripper_mount" pos="0 0.1 0" quat="0.7071068 0.7071068 0 0" childclass="2f85">
+                  <body name="arm2_gripper_mount" pos="0 0.1 0" quat="-0.7071068 0.7071068 0 0" childclass="2f85">
                     <geom class="grip_visual" mesh="2f85_base_mount" material="grip_black"/>
                     <geom class="grip_collision" mesh="2f85_base_mount"/>
                     <body name="arm2_gripper_base" pos="0 0 0.0038" quat="1 0 0 -1">
@@ -529,17 +529,17 @@
 
   <!-- Keyframe Initial Poses -->
   <keyframe>
-    <!-- Neutral ready pose facing respective zones -->
+    <!-- Neutral ready pose with grippers clearly visible in open workspace -->
     <key name="home"
          qpos="
-           0 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0 0 0
-           0 -1.5708 1.5708 -1.5708 -1.5708 0 0 0 0 0 0 0 0 0
+           -0.2 -1.2 1.6 -1.97 -1.57 0.0 0 0 0 0 0 0 0 0
+           0.2 -1.2 1.6 -1.97 -1.57 0.0 0 0 0 0 0 0 0 0
            -0.15 1.05 0.90 1 0 0 0
            0.15 1.05 0.90 1 0 0 0
            -0.45 1.05 0.54 1 0 0 0
            0.45 1.05 0.54 1 0 0 0"
          ctrl="
-           0 -1.5708 1.5708 -1.5708 -1.5708 0 0
-           0 -1.5708 1.5708 -1.5708 -1.5708 0 0"/>
+           -0.2 -1.2 1.6 -1.97 -1.57 0.0 0
+           0.2 -1.2 1.6 -1.97 -1.57 0.0 0"/>
   </keyframe>
 </mujoco>
