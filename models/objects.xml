@@ -1,0 +1,41 @@
+<mujoco model="manipulation_objects">
+  <worldbody>
+    <!-- Primary Pick Target (Red Box) on Row 2 (Middle), Col 1 -->
+    <body name="target_object" pos="-0.15 1.05 0.90">
+      <freejoint name="target_object_joint"/>
+      <inertial pos="0 0 0" mass="0.15" diaginertia="0.00015 0.00015 0.00008"/>
+      <geom name="target_geom" type="box" size="0.025 0.025 0.05" material="target_box_mat"
+            contype="1" conaffinity="1" friction="1.2 0.01 0.0002"
+            solimp="0.95 0.99 0.001" solref="0.005 1"/>
+      <site name="target_center" pos="0 0 0" size="0.005" rgba="1 1 1 0.5"/>
+    </body>
+
+    <!-- Soda Can (Green Cylinder) on Row 2 (Middle), Col 2 -->
+    <body name="can_object" pos="0.15 1.05 0.90">
+      <freejoint name="can_object_joint"/>
+      <inertial pos="0 0 0" mass="0.12" diaginertia="0.00012 0.00012 0.00006"/>
+      <geom name="can_geom" type="cylinder" size="0.028 0.048" material="can_mat"
+            contype="1" conaffinity="1" friction="1.1 0.01 0.0002"
+            solimp="0.95 0.99 0.001" solref="0.005 1"/>
+      <site name="can_center" pos="0 0 0" size="0.005" rgba="1 1 1 0.5"/>
+    </body>
+
+    <!-- Small Bottle / Flask (Blue) on Row 1 (Bottom), Col 0 -->
+    <body name="bottle_object" pos="-0.45 1.05 0.54">
+      <freejoint name="bottle_object_joint"/>
+      <inertial pos="0 0 0" mass="0.10" diaginertia="0.0001 0.0001 0.00005"/>
+      <geom name="bottle_base" type="cylinder" size="0.025 0.035" pos="0 0 -0.015" material="bottle_mat"
+            contype="1" conaffinity="1" friction="1.1 0.01 0.0002"/>
+      <geom name="bottle_neck" type="cylinder" size="0.012 0.020" pos="0 0 0.035" material="bottle_mat"
+            contype="1" conaffinity="1" friction="1.1 0.01 0.0002"/>
+    </body>
+
+    <!-- Small Yellow Cube on Row 1 (Bottom), Col 3 -->
+    <body name="cube_object" pos="0.45 1.05 0.54">
+      <freejoint name="cube_object_joint"/>
+      <inertial pos="0 0 0" mass="0.08" diaginertia="0.00008 0.00008 0.00008"/>
+      <geom name="cube_geom" type="box" size="0.025 0.025 0.025" material="cube_mat"
+            contype="1" conaffinity="1" friction="1.2 0.01 0.0002"/>
+    </body>
+  </worldbody>
+</mujoco>

@@ -1,0 +1,33 @@
+<mujoco model="storage_bin">
+  <worldbody>
+    <body name="bin" pos="0 -0.8 0">
+      <!-- Bottom Base Plate -->
+      <geom name="bin_base" type="box" size="0.22 0.22 0.01" pos="0 0 0.01"
+            material="bin_body_mat" contype="1" conaffinity="1" friction="1.2 0.01 0.001"
+            solimp="0.9 0.95 0.001" solref="0.02 1"/>
+
+      <!-- 4 Side Walls (Height 0.18m) -->
+      <geom name="bin_wall_north" type="box" size="0.22 0.012 0.09" pos="0 0.208 0.10"
+            material="bin_body_mat" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <geom name="bin_wall_south" type="box" size="0.22 0.012 0.09" pos="0 -0.208 0.10"
+            material="bin_body_mat" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <geom name="bin_wall_east" type="box" size="0.012 0.22 0.09" pos="0.208 0 0.10"
+            material="bin_body_mat" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <geom name="bin_wall_west" type="box" size="0.012 0.22 0.09" pos="-0.208 0 0.10"
+            material="bin_body_mat" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+
+      <!-- Chamfered / Slanted Guide Rims -->
+      <geom name="bin_rim_north" type="box" size="0.24 0.015 0.02" pos="0 0.22 0.20" quat="0.9659 0.2588 0 0"
+            material="bin_rim_mat" contype="1" conaffinity="1"/>
+      <geom name="bin_rim_south" type="box" size="0.24 0.015 0.02" pos="0 -0.22 0.20" quat="0.9659 -0.2588 0 0"
+            material="bin_rim_mat" contype="1" conaffinity="1"/>
+      <geom name="bin_rim_east" type="box" size="0.015 0.24 0.02" pos="0.22 0 0.20" quat="0.9659 0 0.2588 0"
+            material="bin_rim_mat" contype="1" conaffinity="1"/>
+      <geom name="bin_rim_west" type="box" size="0.015 0.24 0.02" pos="-0.22 0 0.20" quat="0.9659 0 -0.2588 0"
+            material="bin_rim_mat" contype="1" conaffinity="1"/>
+
+      <!-- Center Detection Site inside the bin -->
+      <site name="bin_drop_target" pos="0 0 0.08" size="0.01" rgba="0 1 0 0.3"/>
+    </body>
+  </worldbody>
+</mujoco>

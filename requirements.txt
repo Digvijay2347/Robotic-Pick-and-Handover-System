@@ -3,7 +3,7 @@ mujoco>=3.1.0
 mujoco-python-viewer>=0.1.4
 
 # Spatial Mathematics & Kinematics
-numpy>=1.24.0,<2.0.0
+numpy>=1.24.0
 scipy>=1.11.0
 transforms3d>=0.4.2
 
@@ -18,10 +18,10 @@ h5py>=3.10.0
 zarr>=2.16.0
 
 # Image & Video Processing
-opencv-python>=4.8.0
 imageio>=2.31.0
 imageio-ffmpeg>=0.4.9
 matplotlib>=3.7.0
+pillow>=9.0.0
 
 # Configuration & Utilities
 pyyaml>=6.0

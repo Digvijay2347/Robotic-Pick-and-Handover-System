@@ -1,0 +1,41 @@
+<mujoco model="wall_shelf">
+  <worldbody>
+    <body name="shelf" pos="0 1.2 0">
+      <!-- Back Wall Panel -->
+      <geom name="shelf_back" type="box" size="0.60 0.01 0.55" pos="0 0.01 1.025"
+            material="shelf_frame" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+
+      <!-- Outer Frame (Left, Right, Top, Bottom) -->
+      <geom name="shelf_left_wall" type="box" size="0.015 0.175 0.55" pos="-0.60 -0.175 1.025"
+            material="shelf_frame" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <geom name="shelf_right_wall" type="box" size="0.015 0.175 0.55" pos="0.60 -0.175 1.025"
+            material="shelf_frame" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <geom name="shelf_bottom_plate" type="box" size="0.60 0.175 0.015" pos="0 -0.175 0.475"
+            material="shelf_wood" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <geom name="shelf_top_plate" type="box" size="0.60 0.175 0.015" pos="0 -0.175 1.575"
+            material="shelf_wood" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+
+      <!-- Intermediate Horizontal Shelves (Row dividers) -->
+      <!-- Row 2 surface (z ~ 0.85): Middle shelf level -->
+      <geom name="shelf_level_2" type="box" size="0.60 0.175 0.015" pos="0 -0.175 0.84"
+            material="shelf_wood" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+      <!-- Row 3 surface (z ~ 1.20): Top shelf level -->
+      <geom name="shelf_level_3" type="box" size="0.60 0.175 0.015" pos="0 -0.175 1.21"
+            material="shelf_wood" contype="1" conaffinity="1" friction="0.8 0.005 0.0001"/>
+
+      <!-- Vertical Dividers (Creating 4 columns: Col 0 [-0.45], Col 1 [-0.15], Col 2 [0.15], Col 3 [0.45]) -->
+      <geom name="shelf_div_1" type="box" size="0.012 0.175 0.53" pos="-0.30 -0.175 1.025"
+            material="shelf_frame" contype="1" conaffinity="1"/>
+      <geom name="shelf_div_2" type="box" size="0.012 0.175 0.53" pos="0.00 -0.175 1.025"
+            material="shelf_frame" contype="1" conaffinity="1"/>
+      <geom name="shelf_div_3" type="box" size="0.012 0.175 0.53" pos="0.30 -0.175 1.025"
+            material="shelf_frame" contype="1" conaffinity="1"/>
+
+      <!-- Shelf Support Legs to Floor -->
+      <geom name="shelf_leg_1" type="cylinder" size="0.025 0.2375" pos="-0.58 -0.32 0.2375" material="shelf_frame"/>
+      <geom name="shelf_leg_2" type="cylinder" size="0.025 0.2375" pos="0.58 -0.32 0.2375" material="shelf_frame"/>
+      <geom name="shelf_leg_3" type="cylinder" size="0.025 0.2375" pos="-0.58 -0.02 0.2375" material="shelf_frame"/>
+      <geom name="shelf_leg_4" type="cylinder" size="0.025 0.2375" pos="0.58 -0.02 0.2375" material="shelf_frame"/>
+    </body>
+  </worldbody>
+</mujoco>
