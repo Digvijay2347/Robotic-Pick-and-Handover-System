@@ -92,7 +92,7 @@ graph TB
 | **0** | **Environment & Tooling Setup** | 🟢 Complete |
 | **1** | **MJCF Scene & Asset Assembly** | 🟢 Complete |
 | **2** | **Kinematics & Single-Arm Pick Baseline** | 🟢 Complete |
-| **3** | **Perception & 6-DOF Grasp Planning** | ⚪ Queued |
+| **3** | **Perception & 6-DOF Grasp Planning** | 🟢 Complete |
 | **4** | **Coordinated Dual-Arm Handover FSM** | ⚪ Queued |
 | **5** | **Gym-ALOHA Environment Wrapper** | ⚪ Queued |
 | **6** | **Expert Demonstration Dataset Collection** | ⚪ Queued |

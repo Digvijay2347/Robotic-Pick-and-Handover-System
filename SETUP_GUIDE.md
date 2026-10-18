@@ -1,7 +1,7 @@
 # Dual-Arm Robotic Pick-and-Handover System
 ## Simulation Setup & Interactive User Guide
 
-> **Current Status**: Phase 0 (Environment), Phase 1 (Scene & Assets), and Phase 2 (Kinematics & Single-Arm Pick) Complete 🟢  
+> **Current Status**: Phase 0 (Environment), Phase 1 (Scene & Assets), Phase 2 (Kinematics & Single-Arm Pick), and Phase 3 (Perception & 6-DOF Grasp Planning) Complete 🟢  
 > **Target Environment**: Windows 11 · Python 3.11 · MuJoCo 3.16.0 · Intel Arc 140V (8GB)  
 > **Repository**: [`Digvijay2347/Robotic-Pick-and-Handover-System`](https://github.com/Digvijay2347/Robotic-Pick-and-Handover-System)
 
@@ -222,10 +222,61 @@ In Phase 2, we implemented the complete autonomous kinematic and Cartesian contr
 
 ---
 
-## 7. Next Step in Roadmap: Phase 3 (Perception & 6-DOF Grasp Planning)
+## 7. Phase 3: Perception & 6-DOF Grasp Planning
 
-With the single-arm pick baseline fully proven, the next phase will introduce:
-- **Simulated RGB-D Sensing**: Process camera depth buffers from `overhead_cam` and `shelf_cam`.
-- **Point Cloud Generation**: Generate segmented 3D point cloud of shelf compartments and objects.
-- **6-DOF Grasp Generation**: Open3D antipodal surface-normal grasp candidate sampler and GraspGen DiT interface.
-- **Collision-Free Approach Vectors**: Automatically rank and filter grasp candidates against shelf dividers.
+In Phase 3, we implemented an autonomous synthetic perception and 6-DOF grasp planning pipeline driven purely from `shelf_cam` RGB-D sensory input:
+- **[`perception/pointcloud.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/pointcloud.py)**: Camera intrinsic derivation, synchronized linear metric depth rendering, pinhole back-projection to 3D World coordinates ($P_w = R_{\text{cam}} P_c + T_{\text{cam}}$), and Open3D integration.
+- **[`perception/segmentation.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py)**: 3D shelf ROI cropping, iterative RANSAC plane stripping for shelf boards and dividers, DBSCAN Euclidean clustering, and color signature matching (`find_target`).
+- **[`perception/grasp_planners/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planners/)**:
+  - `GeometricGraspPlanner`: Native antipodal parallel-jaw planner using PCA decomposition, approach corridor alignment ($+Y$), horizontal finger pad orientation, and aperture sizing.
+  - `GraspGenAdapter`: ML adapter for NVlabs/GraspGen with automatic geometric fallback.
+- **[`perception/grasp_filter.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_filter.py)**: DLS numerical IK reachability and shelf collision filtering.
+- **[`scripts/03_test_perception.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/03_test_perception.py)**: Full end-to-end perception-driven pick pipeline.
+
+### Running the Perception-Driven Pick:
+
+#### Fast Headless Benchmark:
+```powershell
+.\.venv\Scripts\python scripts/03_test_perception.py
+```
+
+#### Interactive 3D Viewer Mode (Watch Live):
+```powershell
+.\.venv\Scripts\python scripts/03_test_perception.py --viewer
+```
+
+#### With GraspGen ML Adapter Flag:
+```powershell
+.\.venv\Scripts\python scripts/03_test_perception.py --use-graspgen
+```
+
+### Verified Phase 3 Telemetry:
+| Metric | Acceptance Gate | Observed Value | Status |
+|---|:---:|:---:|:---:|
+| **3D Object Localization Error** | $< 15.0\text{ mm}$ | **$6.45\text{ mm}$** | PASSED 🟢 |
+| **Grasp Quality Score** | $> 0.50$ | **$0.693$** | PASSED 🟢 |
+| **Kinematically Reachable Grasps** | $\ge 1$ | **$2\text{ of }2$** | PASSED 🟢 |
+| **Grasp Contact Normal Force** | $> 0.5\text{ N}$ | **$272.04\text{ N}$** | PASSED 🟢 |
+| **Vertical Lift Clearance** | $\ge 8.0\text{ cm}$ | **$+13.1\text{ cm}$** | PASSED 🟢 |
+| **Link-to-Shelf Collisions** | $0$ | **$0\text{ (CLEAN)}$** | PASSED 🟢 |
+
+### Perception Artifacts Generated in [`recordings/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/):
+- `phase3_initial_shelf_view.png`: Offscreen RGB snapshot from `shelf_cam`.
+- `phase3_target_cluster.ply`: Segmented 3D point cloud of the target red box.
+- `phase3_stage_1_PREGRASP.png` to `phase3_stage_6_HOLD.png`: Pick execution milestones.
+- `phase3_final_overhead.png`: Overhead view of Arm 1 holding the retracted object in free space.
+
+---
+
+## 8. Next Step in Roadmap: Phase 4 (Coordinated Dual-Arm Mid-Air Handover FSM)
+
+With perception and single-arm picking fully verified, the next phase will implement:
+- **Shared Handover Workspace Analysis**: Determine collision-free SE(3) transfer pose $\mathbf{T}_{\text{handover}}$ at `[0.0, 0.1, 1.05]`.
+- **Dual-Arm Master-Follower Trajectory Generation**: Synchronized minimum-jerk motion for Arm 1 and Arm 2.
+- **Multi-Phase Handover State Machine**:
+  1. `APPROACH_HANDOVER`: Arm 1 moves with object to handover site; Arm 2 moves open gripper to ready pre-transfer pose.
+  2. `ALIGNED_INTERCEPT`: Arm 2 aligns finger pads around the exposed upper/lower section of the object.
+  3. `DUAL_CONTACT_GRIP`: Arm 2 closes gripper; verify dual-arm force equilibrium ($F_1 > 0, F_2 > 0$).
+  4. `TRANSFER_RELEASE`: Arm 1 opens gripper; Arm 2 confirms sole load carriage.
+  5. `RETRACT_CLEAR`: Arm 1 retracts to home; Arm 2 transports object to drop bin.
+  6. `DEPOSIT`: Arm 2 releases object over storage bin.

@@ -209,39 +209,50 @@ Implement forward kinematics, numerical inverse kinematics (IK) with joint-limit
 
 ---
 
-### Phase 3: Perception Pipeline & 6-DOF Grasp Planning
+### Phase 3: Perception Pipeline & 6-DOF Grasp Planning 🟢 Complete
 
 #### Objective
 Build a synthetic perception pipeline that captures depth from `shelf_cam`, back-projects it to a 3D point cloud, segments the object of interest, and generates 6-DOF SE(3) grasp poses using both a native geometric planner and the GraspGen interface.
 
 #### Technical Details
 1. **Depth Capture & Back-Projection (`perception/pointcloud.py`)**:
-   - Extract raw normalized depth buffer from `shelf_cam`.
-   - Linearize depth using MuJoCo camera clipping planes:
-     $$Z = \frac{z_{\text{near}} \cdot z_{\text{far}}}{z_{\text{far}} - d \cdot (z_{\text{far}} - z_{\text{near}})}$$
-   - Back-project 2D pixel coordinates $(u, v)$ to 3D camera coordinates using the camera intrinsic matrix $K$.
-   - Transform points to World Frame using `data.cam_xmat` and `data.cam_xpos`.
+   - Extract metric linear depth buffer from `shelf_cam` via MuJoCo renderer.
+   - Pinhole camera intrinsics derived from vertical FOV: $f_y = \frac{H}{2 \tan(\text{fovy}/2)}$, $f_x = f_y$, principal point at image center.
+   - Exact pinhole back-projection from pixel space $(u, v, d)$ to 3D Camera Frame $(X_c, Y_c, Z_c)$ taking into account MuJoCo camera coordinate conventions ($+X$ right, $+Y$ up, looks along $-Z$).
+   - Transform points to 3D World coordinates using camera position vector and rotation matrix ($P_w = R_{\text{cam}} P_c + T_{\text{cam}}$).
 2. **Scene Parsing & Object Segmentation (`perception/segmentation.py`)**:
-   - Crop point cloud to the shelf bounding volume.
-   - RANSAC plane removal to strip shelf dividers and horizontal shelf plates.
-   - DBSCAN Euclidean clustering to isolate individual object point clouds.
+   - 3D Region of Interest (ROI) spatial cropping to isolate the shelf bounding volume ($X \in [-0.62, 0.62]$, $Y \in [0.90, 1.25]$, $Z \in [0.45, 1.45]$).
+   - Iterative RANSAC plane stripping to eliminate horizontal shelf levels and vertical dividers.
+   - DBSCAN Euclidean clustering to segment distinct manipulable objects.
+   - Target matching via color signatures and spatial priors (`find_target`).
+   - Geometric bounding volume reconstruction compensating for RANSAC plane clipping to achieve sub-centimeter 3D center localization accuracy.
 3. **Grasp Planner Architecture (`perception/grasp_planners/`)**:
-   - `BaseGraspPlanner`: Abstract class requiring `plan_grasps(point_cloud) -> List[SE3Pose]`.
+   - `BaseGraspPlanner`: Abstract class requiring `plan_grasps(point_cloud) -> List[GraspCandidate]`.
+   - `GraspCandidate`: Encapsulates position, rotation matrix, scalar-first quaternion, approach vector, gripper aperture width, and confidence score.
    - **Track A: Native Geometric Planner (`geometric_planner.py`)**:
      - Computes surface normals via Open3D k-nearest neighbors.
-     - Performs Oriented Bounding Box (OBB) & Principal Component Analysis (PCA) decomposition.
-     - Samples antipodal grasp pairs along object minor axes.
-     - Scores candidate grasps based on gripper clearance, approach angle, and alignment with gravity.
+     - Performs Principal Component Analysis (PCA) on point distribution.
+     - Samples approach directions along shelf entry corridor ($+Y$) and horizontal antipodal closing axes.
+     - Evaluates gripper aperture limits ($\le 85\text{ mm}$ for Robotiq 2F-85).
+     - Composite scoring penalizing oblique approaches, rewarding horizontal finger alignment, aperture centering, and vertical clearance.
    - **Track B: GraspGen ML Adapter (`graspgen_adapter.py`)**:
-     - Implements the wrapper for `NVlabs/GraspGen` diffusion model.
-     - Converts point cloud to normalized tensor format, runs diffusion denoiser and discriminator.
-     - Provides automatic fallback to the geometric planner if CUDA/GraspGen weights are unavailable on the host.
-4. **Frame Transformation & Reachability Filtering**:
-   - Convert candidate grasp poses from camera/world frame into `arm1_base` frame.
-   - Filter candidate poses through the IK solver: reject grasps that are kinematically unreachable or cause self-collisions.
+     - Wrapper for `NVlabs/GraspGen` diffusion model with automatic geometric fallback on non-CUDA / CPU environments.
+4. **Kinematic Reachability & Collision Filtering (`perception/grasp_filter.py`)**:
+   - Evaluates DLS closed-loop inverse kinematics for pre-grasp standoff and grasp target.
+   - Enforces link-to-shelf clearances and inter-arm collision avoidance via `CollisionChecker`.
+   - Ranks viable candidates using composite score combining perception confidence and joint displacement from neutral home posture.
+5. **End-to-End Perception-Driven Pick (`scripts/03_test_perception.py`)**:
+   - Autonomous pipeline driven purely from `shelf_cam` RGB-D perception without hardcoded ground truth coordinates.
+   - 6-stage closed-loop execution: Pre-grasp $\to$ Cartesian approach $\to$ Grip $\to$ Vertical lift $\to$ Retraction $\to$ Free space hold.
 
 #### Validation & Acceptance Gate
-- Execute `python scripts/03_test_perception.py`: Open3D/MuJoCo visualizer displays the segmented point cloud, coordinate frames of generated 6-DOF grasp candidates, and selects the top-ranked viable grasp.
+- Execute `python scripts/03_test_perception.py`:
+  - Perceived 3D Localization Error: **6.45 mm** (Acceptance Gate $< 15.0\text{ mm}$).
+  - Top Candidate Grasp Score: **0.693** (Kinematically valid, $0$ collisions).
+  - Normal Contact Force: **272.04 N** (Acceptance Gate $> 0.5\text{ N}$).
+  - Vertical Lift Delta: **+13.1 cm** (Acceptance Gate $\ge 8.0\text{ cm}$).
+  - Link-to-Shelf Collisions: **0 (CLEAN)**.
+  - Milestone images saved to `recordings/phase3_stage_*.png` and point cloud to `recordings/phase3_target_cluster.ply`.
 
 ---
 
