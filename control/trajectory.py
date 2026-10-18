@@ -160,3 +160,40 @@ class JointTrajectory:
         q = self.q_start + s * (self.q_goal - self.q_start)
         q_dot = (s_dot / self.duration) * (self.q_goal - self.q_start)
         return q, q_dot, is_done
+
+
+class MultiJointTrajectory:
+    """Sequences multiple JointTrajectory segments through joint waypoints."""
+
+    def __init__(self, waypoints: List[np.ndarray], segment_durations: List[float]):
+        self.segments: List[JointTrajectory] = []
+        self.start_times: List[float] = []
+        current_time = 0.0
+        for i in range(len(waypoints) - 1):
+            dur = max(0.01, segment_durations[i])
+            self.segments.append(JointTrajectory(waypoints[i], waypoints[i+1], duration=dur))
+            self.start_times.append(current_time)
+            current_time += dur
+        self.total_duration = current_time
+        self.duration = current_time
+
+    def evaluate(self, t: float) -> Tuple[np.ndarray, np.ndarray, bool]:
+        """Evaluates joint positions and velocities across multi-segment sequence at time t."""
+        if not self.segments:
+            return np.zeros(6), np.zeros(6), True
+
+        if t >= self.total_duration:
+            last_seg = self.segments[-1]
+            q, _, _ = last_seg.evaluate(last_seg.duration)
+            return q, np.zeros_like(q), True
+
+        # Find active segment
+        seg_idx = 0
+        for i, st in enumerate(self.start_times):
+            if t >= st:
+                seg_idx = i
+
+        seg = self.segments[seg_idx]
+        local_t = t - self.start_times[seg_idx]
+        return seg.evaluate(local_t)
+

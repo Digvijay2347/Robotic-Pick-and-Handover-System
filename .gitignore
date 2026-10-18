@@ -71,7 +71,11 @@ outputs/
 *.bin
 
 # Video & Render Outputs
-recordings/
+recordings/*.mp4
+recordings/*.avi
+recordings/*.webm
+recordings/*.mov
+recordings/analysis/
 *.mp4
 *.avi
 *.webm

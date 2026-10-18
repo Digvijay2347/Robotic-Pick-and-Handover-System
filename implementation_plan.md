@@ -304,7 +304,7 @@ stateDiagram-v2
 
 #### Validation & Acceptance Gate
 - Execute `python scripts/04_run_scripted_handover.py`: Run 10 consecutive pick-handover-place cycles. Must achieve $\ge 90\%$ success rate without dropping objects or colliding.
-- **Status**: **PASSED (100.0% Success Rate)** [10/10 cycles succeeded, 0 collisions, 6.9 cm mean bin distance, verified dual custody hold].
+- **Status**: **PASSED (100.0% Success Rate, 10/10 Cycles)** [0 collisions, 0 early pre-grasp contacts, 1.8 cm mean bin distance, verified dual custody hold with orthogonal 0° tilt grip].
 
 ---
 

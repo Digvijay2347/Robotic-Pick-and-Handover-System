@@ -15,14 +15,14 @@ Orchestrates the complete autonomous 16-stage manipulation pipeline:
 import os
 import sys
 import time
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, Union
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import mujoco
 
 from control.dual_arm_controller import DualArmController
 from control.kinematics import RobotKinematics
-from control.trajectory import JointTrajectory
+from control.trajectory import JointTrajectory, MultiJointTrajectory
 from control.collision_checker import CollisionChecker
 from perception import (
     capture_scene_pointcloud,
@@ -79,7 +79,7 @@ class HandoverFSM:
 
         # Current active trajectories
         self.traj_arm1: Optional[JointTrajectory] = None
-        self.traj_arm2: Optional[JointTrajectory] = None
+        self.traj_arm2: Optional[Union[JointTrajectory, MultiJointTrajectory]] = None
         self.hold_arm1: Optional[np.ndarray] = None
         self.hold_arm2: Optional[np.ndarray] = None
         self.target_grip1: float = 0.0
@@ -95,6 +95,7 @@ class HandoverFSM:
         self.q_ret1: Optional[np.ndarray] = None
         self.q_ho1: Optional[np.ndarray] = None
         self.q_ho1_clear: Optional[np.ndarray] = None
+        self.q_standoff_far2: Optional[np.ndarray] = None
         self.q_pre2: Optional[np.ndarray] = None
         self.q_ho2: Optional[np.ndarray] = None
         self.q_bin2: Optional[np.ndarray] = None
@@ -145,8 +146,8 @@ class HandoverFSM:
         self.q_ret1 = kin1_k.unwrap_joint_angles(q_ret, self.q_lift1)
 
         # Option A Handover: Top-Down Vertical Orientation with Orthogonal Closing Axis
-        # Approach axis = [0, 0, -1] (downwards), Closing axis (local Y) = [1, 0, 0] (world X)
-        mat1_top = np.column_stack([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
+        # Approach axis = [0, 0, -1] (downwards), Box oriented with 5cm width along Y
+        mat1_top = np.column_stack([[1, 0, 0], [0, -1, 0], [0, 0, -1]])
         quat1_top = R.from_matrix(mat1_top).as_quat(scalar_first=True)
         pos_ho1 = np.array([0.0, 0.10, 1.075])
 
@@ -159,8 +160,8 @@ class HandoverFSM:
             return False
         self.q_ho1 = kin1_k.unwrap_joint_angles(q_ho1, self.q_ret1)
 
-        # Arm 1 Retract Clear: Straight UP along +Z (+25 cm) and away (-5 cm along -Y)
-        pos_ho1_clear = pos_ho1 + np.array([0.0, -0.05, 0.25])
+        # Arm 1 Retract Clear: Straight UP along +Z (+25 cm) into clear space
+        pos_ho1_clear = pos_ho1 + np.array([0.0, 0.0, 0.25])
         for i, a in enumerate(kin1_k.qpos_addrs):
             data_kin.qpos[a] = self.q_ho1[i]
         mujoco.mj_forward(self.model, data_kin)
@@ -173,9 +174,9 @@ class HandoverFSM:
         # Arm 2 Nominal Handover Setup (approaching along +X, closing along Y)
         mat2_ho = np.column_stack([[0, 0, 1], [0, -1, 0], [1, 0, 0]])
         quat2_ho = R.from_matrix(mat2_ho).as_quat(scalar_first=True)
-        pos_ho2 = np.array([self.handover_pos[0] + 0.0144, self.handover_pos[1], self.handover_pos[2] - 0.021])
-        standoff = 0.07  # 7 cm standoff avoids singularity boundary
-        pos_pre2 = pos_ho2 - np.array([standoff, 0.0, 0.0])
+        pos_ho2 = np.array([self.handover_pos[0], self.handover_pos[1], self.handover_pos[2] - 0.021])
+        pos_standoff_far = pos_ho2 - np.array([0.18, 0.0, 0.0])
+        pos_pre2 = pos_ho2 - np.array([0.07, 0.0, 0.0])
 
         for i, a in enumerate(kin2_k.qpos_addrs):
             data_kin.qpos[a] = kin2_k.q_rest[i]
@@ -189,6 +190,11 @@ class HandoverFSM:
         for i, a in enumerate(kin2_k.qpos_addrs):
             data_kin.qpos[a] = self.q_ho2[i]
         mujoco.mj_forward(self.model, data_kin)
+
+        ok_far, q_far = kin2_k.solve_ik_closed_loop(pos_standoff_far, quat2_ho)
+        if not ok_far:
+            return False
+        self.q_standoff_far2 = kin2_k.unwrap_joint_angles(q_far, self.q_ho2)
 
         ok_pre2, q_pre2 = kin2_k.solve_ik_closed_loop(pos_pre2, quat2_ho)
         if not ok_pre2:
@@ -217,9 +223,9 @@ class HandoverFSM:
         mat2_ho = np.column_stack([[0, 0, 1], [0, -1, 0], [1, 0, 0]])
         quat2_ho = R.from_matrix(mat2_ho).as_quat(scalar_first=True)
 
-        pos_ho2 = np.array([pos_box[0] + 0.0144, pos_box[1], pos_box[2] - 0.021])
-        standoff = 0.07  # Clean 7 cm standoff avoids UR10e singularity whip
-        pos_pre2 = pos_ho2 - np.array([standoff, 0.0, 0.0])
+        pos_ho2 = np.array([pos_box[0], pos_box[1], pos_box[2] - 0.021])
+        pos_standoff_far = pos_ho2 - np.array([0.18, 0.0, 0.0])
+        pos_pre2 = pos_ho2 - np.array([0.07, 0.0, 0.0])
 
         data_kin = mujoco.MjData(self.model)
         kin2_kin = RobotKinematics(self.model, data_kin, arm_id=2)
@@ -236,6 +242,11 @@ class HandoverFSM:
         for i, a in enumerate(kin2_kin.qpos_addrs):
             data_kin.qpos[a] = self.q_ho2[i]
         mujoco.mj_forward(self.model, data_kin)
+
+        ok_far, q_far = kin2_kin.solve_ik_closed_loop(pos_standoff_far, quat2_ho)
+        if not ok_far:
+            return False
+        self.q_standoff_far2 = kin2_kin.unwrap_joint_angles(q_far, self.q_ho2)
 
         ok_pre2, q_pre2 = kin2_kin.solve_ik_closed_loop(pos_pre2, quat2_ho)
         if not ok_pre2:
@@ -295,7 +306,11 @@ class HandoverFSM:
 
         elif new_state == HandoverState.PRE_HANDOVER_2:
             self.hold_arm1 = self.q_ho1
-            self.traj_arm2 = JointTrajectory(self.q_home2, self.q_pre2, duration=duration)
+            # 2-stage collision-free corridor: Home -> Far Standoff (-18cm) -> Final Standoff (-7cm)
+            self.traj_arm2 = MultiJointTrajectory(
+                [self.q_home2, self.q_standoff_far2, self.q_pre2],
+                [2.0, 1.0]
+            )
             self.target_grip1 = 0.75
             self.target_grip2 = 0.0
 
@@ -496,7 +511,7 @@ class HandoverFSM:
                     print("  [ERROR] Adaptive Arm 2 handover trajectory resolution failed!")
                     self.transition_to(HandoverState.ERROR_RECOVERY)
                     return self.current_state, True
-                self.transition_to(HandoverState.PRE_HANDOVER_2, duration=2.0)
+                self.transition_to(HandoverState.PRE_HANDOVER_2, duration=3.0)
 
             elif self.current_state == HandoverState.PRE_HANDOVER_2:
                 self.transition_to(HandoverState.APPROACH_2, duration=1.5)
