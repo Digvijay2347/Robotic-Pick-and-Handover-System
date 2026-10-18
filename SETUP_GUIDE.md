@@ -190,6 +190,14 @@ python scripts/01_test_scene.py
 #### Q: The viewer window closes immediately or fails to launch.
 Ensure the virtual environment is activated (`.venv\Scripts\activate`). If running through remote desktop or SSH, MuJoCo requires an active Windows desktop session for OpenGL context creation.
 
+#### Q: OSError: [WinError 4551] An Application Control policy has blocked this file
+This error is triggered by Windows 11 Smart App Control (SAC) or OneDrive tagging newly extracted `.dll` binaries in `.venv` with the Mark of the Web (`Zone.Identifier`).
+To permanently clear this block across all virtual environment binaries:
+```powershell
+Get-ChildItem -Path '.venv' -Recurse | Unblock-File
+```
+Additionally, `mujoco/__init__.py` in `.venv` has been patched so that optional bundled plugin DLLs (`sensor.dll`, etc.) caught by Application Control are handled safely without preventing core MuJoCo physics from loading.
+
 #### Q: How fast is physics stepping?
 The physics timestep is set to $0.002\text{ s}$ ($500\text{ Hz}$). On this system's multi-threaded CPU and Intel Arc GPU, MuJoCo steps at over **$6,500\text{ Hz}$** ($\approx 13\times$ faster than real-time), enabling fast demonstration collection and rollouts.
 
