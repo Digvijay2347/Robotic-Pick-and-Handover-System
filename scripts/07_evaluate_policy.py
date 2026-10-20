@@ -119,6 +119,7 @@ def parse_args():
     parser.add_argument("--randomize", action="store_true", help="Apply initial object pose domain randomization")
     parser.add_argument("--temporal-ensemble", action="store_true", default=True, help="Enable exponential temporal ensembling")
     parser.add_argument("--no-ensemble", action="store_true", help="Disable temporal ensembling (query every K steps)")
+    parser.add_argument("--infer-stride", type=int, default=1, help="Query stride in steps (default 1 for 50Hz GPU ensembling; set 5-10 for fast CPU playback)")
     parser.add_argument("--ensemble-decay", type=float, default=0.20, help="Temporal ensembling exponential decay m (default 0.20)")
     parser.add_argument("--replan-freq", type=int, default=10, help="Receding horizon replan frequency when not ensembling (default 10)")
     parser.add_argument("--device", type=str, default="auto", help="Compute device ('cpu', 'cuda', 'auto')")
@@ -133,6 +134,12 @@ def main():
 
     num_episodes = args.num_episodes or (1 if args.viewer else 5)
 
+    # Robust path resolution for checkpoint
+    if not os.path.isabs(args.checkpoint):
+        candidate = os.path.join(ROOT_DIR, args.checkpoint)
+        if os.path.exists(candidate):
+            args.checkpoint = candidate
+
     print("=" * 80)
     print("      PHASE 8: CLOSED-LOOP VISUOMOTOR POLICY EVALUATION (ACT)")
     print("=" * 80)
@@ -142,7 +149,7 @@ def main():
     print(f"  Evaluation Trials : {num_episodes}")
     print(f"  Max Steps / Trial : {args.max_steps} ({args.max_steps/50:.1f}s)")
     print(f"  Domain Randomize  : {args.randomize}")
-    print(f"  Temporal Ensemble : {args.temporal_ensemble} (m={args.ensemble_decay})")
+    print(f"  Temporal Ensemble : {args.temporal_ensemble} (m={args.ensemble_decay}, stride={args.infer_stride})")
     print("=" * 80)
 
     if not os.path.exists(args.checkpoint):
@@ -169,6 +176,10 @@ def main():
     chunk_size = model_cfg.get("chunk_size", 25)
     image_size = tuple(dataset_cfg.get("input_image_size", [112, 112]))
     stats_path = dataset_cfg.get("stats_path", "data/meta/stats.json")
+    if not os.path.isabs(stats_path):
+        candidate_stats = os.path.join(ROOT_DIR, stats_path)
+        if os.path.exists(candidate_stats):
+            stats_path = candidate_stats
 
     model = ACTPolicy(
         camera_names=camera_names,
@@ -249,8 +260,9 @@ def main():
                 images_t = preprocess_images(obs["images"], target_size=image_size)
                 images_t = {k: v.to(device) for k, v in images_t.items()}
 
-                # 2. Query Policy (every step for temporal ensembling, or every replan_freq steps)
-                if args.temporal_ensemble or (step % args.replan_freq == 0):
+                # 2. Query Policy (every step / infer_stride for ensembling, or every replan_freq steps)
+                should_query = (step % max(1, args.infer_stride) == 0) if args.temporal_ensemble else (step % args.replan_freq == 0)
+                if should_query:
                     with torch.no_grad():
                         pred_chunk_t = model.predict_action_chunk(images_t, qpos_t)  # (1, K, 14)
                         norm_chunk = pred_chunk_t.squeeze(0).cpu().numpy()          # (K, 14)
@@ -268,12 +280,12 @@ def main():
                     # with a hysteresis threshold (> 0.0) to prevent premature mid-air closing during approach.
                     if cached_chunk is not None:
                         action_to_apply[6] = 0.5 if (cached_chunk[0, 6] > 0.0 or action_to_apply[6] > 0.1) else -1.0
-                        action_to_apply[13] = 0.5 if (cached_chunk[0, 13] > 0.0 or action_to_apply[13] > 0.1) else -1.0
+                        action_to_apply[13] = 1.0 if (cached_chunk[0, 13] > 0.0 or action_to_apply[13] > 0.1) else -1.0
                 else:
-                    action_idx = step % args.replan_freq
+                    action_idx = min(step % args.replan_freq, chunk_size - 1)
                     action_to_apply = cached_chunk[action_idx].copy()
                     action_to_apply[6] = 0.5 if action_to_apply[6] > 0.0 else -1.0
-                    action_to_apply[13] = 0.5 if action_to_apply[13] > 0.0 else -1.0
+                    action_to_apply[13] = 1.0 if action_to_apply[13] > 0.0 else -1.0
 
                 action_to_apply = np.clip(action_to_apply, -1.0, 1.0)
 
@@ -301,21 +313,23 @@ def main():
 
                 # Record composite video frame if requested
                 if video_writer is not None:
+                    from PIL import Image
                     img_top = obs["images"]["top"]
                     img_w1 = obs["images"]["wrist1"]
                     img_w2 = obs["images"]["wrist2"]
-                    # Render small composite preview
-                    import cv2
                     h_tgt = 240
                     w_tgt = 320
-                    t_sm = cv2.resize(img_top, (w_tgt, h_tgt))
-                    w1_sm = cv2.resize(img_w1, (w_tgt, h_tgt))
-                    w2_sm = cv2.resize(img_w2, (w_tgt, h_tgt))
+                    t_sm = np.array(Image.fromarray(img_top).resize((w_tgt, h_tgt), Image.BILINEAR))
+                    w1_sm = np.array(Image.fromarray(img_w1).resize((w_tgt, h_tgt), Image.BILINEAR))
+                    w2_sm = np.array(Image.fromarray(img_w2).resize((w_tgt, h_tgt), Image.BILINEAR))
                     comp_row = np.concatenate([t_sm, w1_sm, w2_sm], axis=1)
                     video_writer.append_data(comp_row)
 
                 # Update Viewer if active
                 if viewer_handle is not None:
+                    if not viewer_handle.is_running():
+                        print(f"\n[VIEWER] Interactive window closed by user at step {step}. Ending trial...")
+                        break
                     viewer_handle.sync()
                     elapsed = time.time() - t_step_start
                     delay = max(0.0, (ctrl_dt / max(0.1, args.speed)) - elapsed)
@@ -332,6 +346,8 @@ def main():
                     for _ in range(50):
                         env.step(action_to_apply)
                         if viewer_handle is not None:
+                            if not viewer_handle.is_running():
+                                break
                             viewer_handle.sync()
                     break
 
@@ -361,13 +377,14 @@ def main():
     if args.viewer:
         with mujoco.viewer.launch_passive(env.model, env.data) as viewer:
             run_eval_loop(viewer)
-            print("\n[VIEWER] Simulation evaluation finished. Keeping viewer open (close window to exit)...")
-            try:
-                while viewer.is_running():
-                    viewer.sync()
-                    time.sleep(0.02)
-            except KeyboardInterrupt:
-                pass
+            if viewer.is_running():
+                print("\n[VIEWER] Simulation evaluation finished. Keeping viewer open (close window to exit)...")
+                try:
+                    while viewer.is_running():
+                        viewer.sync()
+                        time.sleep(0.02)
+                except KeyboardInterrupt:
+                    pass
     else:
         run_eval_loop(None)
 

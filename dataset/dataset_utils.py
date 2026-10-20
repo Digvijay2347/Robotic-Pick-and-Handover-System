@@ -168,11 +168,12 @@ def render_composite_video(
     fps: int = 50,
 ):
     """
-    Generates a composite side-by-side MP4 video showing top, wrist1, and wrist2 camera streams.
+    Generates a composite side-by-side MP4 video showing top, wrist1, and wrist2 camera streams
+    with synchronized telemetry and gripper status overlays.
     """
     try:
         import imageio
-        from PIL import Image, ImageDraw
+        from PIL import Image, ImageDraw, ImageFont
     except ImportError:
         print("[ERROR] imageio and Pillow are required to render composite videos.")
         return
@@ -189,28 +190,72 @@ def render_composite_video(
         top_imgs = grp["observations/images/top"][:]
         w1_imgs = grp["observations/images/wrist1"][:]
         w2_imgs = grp["observations/images/wrist2"][:]
+        actions = grp["action"][:] if "action" in grp else None
 
     T = len(top_imgs)
     print(f"[VIDEO] Rendering {T} composite frames to {output_mp4} at {fps} FPS...")
 
     os.makedirs(os.path.dirname(os.path.abspath(output_mp4)), exist_ok=True)
-    writer = imageio.get_writer(output_mp4, fps=fps)
+    writer = imageio.get_writer(output_mp4, fps=fps, codec="libx264", quality=8)
+
+    target_top_w, target_top_h = 640, 480
+    target_w_w, target_w_h = 320, 240
 
     for t in range(T):
-        frame_top = top_imgs[t]       # 480 x 640 x 3
-        frame_w1 = w1_imgs[t]         # 240 x 320 x 3
-        frame_w2 = w2_imgs[t]         # 240 x 320 x 3
+        frame_top = top_imgs[t]
+        frame_w1 = w1_imgs[t]
+        frame_w2 = w2_imgs[t]
+
+        # Ensure consistent resolution
+        if frame_top.shape[:2] != (target_top_h, target_top_w):
+            frame_top = np.array(Image.fromarray(frame_top).resize((target_top_w, target_top_h), Image.BILINEAR))
+        if frame_w1.shape[:2] != (target_w_h, target_w_w):
+            frame_w1 = np.array(Image.fromarray(frame_w1).resize((target_w_w, target_w_h), Image.BILINEAR))
+        if frame_w2.shape[:2] != (target_w_h, target_w_w):
+            frame_w2 = np.array(Image.fromarray(frame_w2).resize((target_w_w, target_w_h), Image.BILINEAR))
 
         # Stack wrist cameras vertically on the right: (480 x 320 x 3)
         wrists_col = np.vstack([frame_w1, frame_w2])
 
-        # Concatenate horizontally: (480 x (640 + 320) = 480 x 960 x 3)
+        # Concatenate horizontally: (480 x 960 x 3)
         composite = np.hstack([frame_top, wrists_col])
 
-        # Overlay text using PIL
+        # Gripper state
+        grip1_txt = "OPEN"
+        grip2_txt = "OPEN"
+        if actions is not None:
+            if actions[t, 6] > 0.0:
+                grip1_txt = "CLAMPED"
+            if actions[t, 13] > 0.0:
+                grip2_txt = "CLAMPED"
+
+        # Overlay HUD using PIL
         pil_img = Image.fromarray(composite)
         draw = ImageDraw.Draw(pil_img)
-        draw.text((20, 20), f"Step: {t:4d}/{T} ({t/fps:.2f}s) | Top: Overhead, Right: Wrist 1 / Wrist 2", fill=(255, 255, 255))
+
+        # Top banner background
+        draw.rectangle([(0, 0), (960, 32)], fill=(15, 17, 23, 220))
+        # Status text
+        draw.text(
+            (12, 8),
+            f"DEMO: {episode_key} | Step: {t:4d}/{T} ({t/fps:.2f}s) | Arm 1: [{grip1_txt}] | Arm 2: [{grip2_txt}]",
+            fill=(255, 255, 255)
+        )
+        draw.text((700, 8), "Dual UR10e Bimanual Handover", fill=(100, 200, 255))
+
+        # Badges for cameras
+        # Top cam badge
+        draw.rectangle([(10, 40), (140, 58)], fill=(0, 0, 0, 180))
+        draw.text((16, 43), "OVERHEAD CAM", fill=(200, 230, 255))
+
+        # Wrist 1 badge
+        draw.rectangle([(650, 40), (790, 58)], fill=(0, 0, 0, 180))
+        draw.text((656, 43), "ARM 1 WRIST CAM", fill=(200, 230, 255))
+
+        # Wrist 2 badge
+        draw.rectangle([(650, 280), (790, 298)], fill=(0, 0, 0, 180))
+        draw.text((656, 283), "ARM 2 WRIST CAM", fill=(200, 230, 255))
+
         writer.append_data(np.array(pil_img))
 
     writer.close()
@@ -220,17 +265,16 @@ def render_composite_video(
 def main():
     parser = argparse.ArgumentParser(description="Dataset Inspection and Video Generation Tool")
     parser.add_argument("--dataset", type=str, default="data/handover_demos.hdf5", help="Path to HDF5 dataset")
-    parser.add_argument("--inspect", action="store_true", default=True, help="Run comprehensive dataset health inspection")
+    parser.add_argument("--inspect", action="store_true", help="Run comprehensive dataset health inspection")
     parser.add_argument("--video", action="store_true", help="Render composite video for specified episode")
     parser.add_argument("--episode", type=str, default="demo_0", help="Episode ID to render video for")
-    parser.add_argument("--out-video", type=str, default="recordings/demo_preview.mp4", help="Output path for video")
+    parser.add_argument("--out-video", type=str, default="recordings/phase6_demo_preview.mp4", help="Output path for video")
     args = parser.parse_args()
-
-    if args.inspect:
-        inspect_dataset(args.dataset)
 
     if args.video:
         render_composite_video(args.dataset, args.episode, args.out_video)
+    elif args.inspect or len(sys.argv) == 1:
+        inspect_dataset(args.dataset)
 
 
 if __name__ == "__main__":
