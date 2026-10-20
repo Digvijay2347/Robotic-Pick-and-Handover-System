@@ -275,17 +275,24 @@ class EpisodeRecorder:
         }
 
         if self.save_images:
+            # Query actual image shape from dataset
+            with h5py.File(self.dataset_path, "r") as f:
+                first_demo = next(iter(f["data"].values()))
+                h_top, w_top = first_demo["observations/images/top"].shape[1:3]
+                h_w1, w_w1 = first_demo["observations/images/wrist1"].shape[1:3]
+                h_w2, w_w2 = first_demo["observations/images/wrist2"].shape[1:3]
+
             info_data["features"]["observation.images.top"] = {
                 "dtype": "video" if not self.compression else "image",
-                "shape": [480, 640, 3],
+                "shape": [h_top, w_top, 3],
             }
             info_data["features"]["observation.images.wrist1"] = {
                 "dtype": "video" if not self.compression else "image",
-                "shape": [240, 320, 3],
+                "shape": [h_w1, w_w1, 3],
             }
             info_data["features"]["observation.images.wrist2"] = {
                 "dtype": "video" if not self.compression else "image",
-                "shape": [240, 320, 3],
+                "shape": [h_w2, w_w2, 3],
             }
 
         info_path = os.path.join(self.meta_dir, "info.json")

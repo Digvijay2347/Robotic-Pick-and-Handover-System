@@ -240,9 +240,4 @@ if not is_held2 or f2 < 5.0:
 
 ---
 
-## 5. Next Steps
 
-Per your instruction:
-> *"Do a deep analysis on these. then create a causes named doc . and the possible ways to fix these. dont strat implementing changes until i say ."*
-
-No changes have been made to the production codebase. Once you review this analysis and approve the strategy, we will proceed to implement the chosen fixes in `fsm/handover_fsm.py` and validate them with the viewer.

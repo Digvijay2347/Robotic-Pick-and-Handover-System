@@ -80,7 +80,8 @@ class GeometricGraspPlanner(BaseGraspPlanner):
         z_min = np.min(points[:, 2]) - 0.015  # Account for RANSAC plane margin
         z_max = np.max(points[:, 2])
         height = max(0.04, z_max - z_min)
-        height_fractions = [0.55, 0.65, 0.72]
+        # Upper-half grasp height fractions to ensure safe 20mm clearance above shelf floor
+        height_fractions = [0.70, 0.76, 0.82]
 
         for yaw_deg, pitch_deg in approach_angles:
             # Construct perturbed approach vector
@@ -139,8 +140,8 @@ class GeometricGraspPlanner(BaseGraspPlanner):
                     # 3. Aperture score: ideal width is 4-6 cm
                     width_score = float(np.exp(-((width - 0.05) ** 2) / 0.002))
 
-                    # 4. Height clearance score: optimal around mid-height (0.60-0.65)
-                    height_score = 1.0 - abs(h_frac - 0.62) / 0.40
+                    # 4. Height clearance score: optimal around upper third (0.75-0.78)
+                    height_score = 1.0 - abs(h_frac - 0.76) / 0.40
 
                     total_score = (
                         0.40 * approach_score +

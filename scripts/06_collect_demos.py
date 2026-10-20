@@ -48,6 +48,8 @@ def collect_demonstrations(
     compression: str = "lzf",
     fps: int = 50,
     max_attempts: int = 100,
+    render_quality: str = "fast",
+    overwrite: bool = False,
 ):
     """
     Collects and logs expert demonstration episodes.
@@ -62,6 +64,7 @@ def collect_demonstrations(
     print(f"  Output Directory  : {output_dir}")
     print(f"  Dataset Name      : {dataset_name}")
     print(f"  Save Images (RGB) : {save_images}")
+    print(f"  Render Quality    : {render_quality}")
     print(f"  Compression       : {compression}")
     print(f"  Control Rate      : {fps} Hz (500 Hz internal physics)")
     print(f"  Randomization     : {randomize}")
@@ -87,6 +90,16 @@ def collect_demonstrations(
         compression=compression,
     )
 
+    # Detect existing episodes to append sequentially
+    start_ep_idx = 0
+    if os.path.exists(recorder.dataset_path) and not overwrite:
+        import h5py
+        with h5py.File(recorder.dataset_path, "r") as f:
+            if "data" in f:
+                start_ep_idx = len(f["data"].keys())
+        if start_ep_idx > 0:
+            print(f"  Discovered {start_ep_idx} existing episodes in dataset. Appending new episodes starting at index {start_ep_idx}...\n", flush=True)
+
     # Persistent camera renderers if saving images
     renderer_top = None
     renderer_wrist = None
@@ -95,8 +108,14 @@ def collect_demonstrations(
     cam_wrist2_id = -1
 
     if save_images:
-        renderer_top = mujoco.Renderer(model, height=480, width=640)
-        renderer_wrist = mujoco.Renderer(model, height=240, width=320)
+        if render_quality == "fast":
+            h_top, w_top = 240, 320
+            h_wrist, w_wrist = 120, 160
+        else:
+            h_top, w_top = 480, 640
+            h_wrist, w_wrist = 240, 320
+        renderer_top = mujoco.Renderer(model, height=h_top, width=w_top)
+        renderer_wrist = mujoco.Renderer(model, height=h_wrist, width=w_wrist)
         cam_top_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "overhead_cam")
         cam_wrist1_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "arm1_wrist_cam")
         cam_wrist2_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_CAMERA, "arm2_wrist_cam")
@@ -111,8 +130,8 @@ def collect_demonstrations(
 
     while successful_count < num_episodes and attempt_count < max_attempts:
         attempt_count += 1
-        ep_idx = successful_count
-        print(f"\n>>> [EPISODE {successful_count + 1}/{num_episodes}] (Attempt {attempt_count}/{max_attempts}) <<<", flush=True)
+        ep_idx = start_ep_idx + successful_count
+        print(f"\n>>> [EPISODE {successful_count + 1}/{num_episodes}] (Global demo_{ep_idx} | Attempt {attempt_count}/{max_attempts}) <<<", flush=True)
 
         # 1. Reset simulation to initial keyframe
         if model.nkey > 0:
@@ -166,7 +185,7 @@ def collect_demonstrations(
             continue
 
         # 3. Execute Handover FSM and Record at 50 Hz
-        fsm.transition_to(HandoverState.APPROACH_1, duration=2.0)
+        fsm.transition_to(HandoverState.APPROACH_1, duration=2.5)
         step_physics = 0
         last_state = fsm.current_state
         t_ep_start = time.time()
@@ -313,6 +332,8 @@ def main():
     parser.add_argument("--no-randomize", dest="randomize", action="store_false", help="Use nominal object pose")
     parser.add_argument("--compression", type=str, default="lzf", choices=["lzf", "gzip"], help="Image compression algorithm")
     parser.add_argument("--fps", type=int, default=50, help="Control sampling frequency")
+    parser.add_argument("--render-quality", type=str, default="fast", choices=["fast", "standard"], help="Image render quality ('fast'=240x320/120x160, 'standard'=480x640/240x320)")
+    parser.add_argument("--overwrite", action="store_true", help="Overwrite existing dataset rather than appending")
     args = parser.parse_args()
 
     collect_demonstrations(
@@ -323,6 +344,8 @@ def main():
         randomize=args.randomize,
         compression=args.compression,
         fps=args.fps,
+        render_quality=args.render_quality,
+        overwrite=args.overwrite,
     )
 
 

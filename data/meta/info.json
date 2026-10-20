@@ -2,8 +2,8 @@
   "codebase_version": "v2.0",
   "robot_type": "dual_ur10e_robotiq_2f85",
   "fps": 50,
-  "total_episodes": 1,
-  "total_frames": 1348,
+  "total_episodes": 5,
+  "total_frames": 6490,
   "total_tasks": 1,
   "features": {
     "action": {
@@ -59,24 +59,24 @@
     "observation.images.top": {
       "dtype": "image",
       "shape": [
-        480,
-        640,
+        240,
+        320,
         3
       ]
     },
     "observation.images.wrist1": {
       "dtype": "image",
       "shape": [
-        240,
-        320,
+        120,
+        160,
         3
       ]
     },
     "observation.images.wrist2": {
       "dtype": "image",
       "shape": [
-        240,
-        320,
+        120,
+        160,
         3
       ]
     }

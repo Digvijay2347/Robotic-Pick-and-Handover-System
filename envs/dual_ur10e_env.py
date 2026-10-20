@@ -89,11 +89,11 @@ class DualUR10eHandoverEnv(gym.Env):
         self.grip1_dofadr = self.model.jnt_dofadr[j1]
         self.grip2_dofadr = self.model.jnt_dofadr[j2]
 
-        # Arm joint ranges for action scaling
-        self.q_min_arm1 = np.array([-2*np.pi, -2*np.pi, -np.pi, -2*np.pi, -2*np.pi, -2*np.pi], dtype=np.float64)
-        self.q_max_arm1 = np.array([ 2*np.pi,  2*np.pi,  np.pi,  2*np.pi,  2*np.pi,  2*np.pi], dtype=np.float64)
-        self.q_min_arm2 = np.array([-2*np.pi, -2*np.pi, -np.pi, -2*np.pi, -2*np.pi, -2*np.pi], dtype=np.float64)
-        self.q_max_arm2 = np.array([ 2*np.pi,  2*np.pi,  np.pi,  2*np.pi,  2*np.pi,  2*np.pi], dtype=np.float64)
+        # Arm joint operational ranges for high-resolution action scaling (ALOHA standard)
+        self.q_min_arm1 = np.array([-0.30, -2.20,  1.50, -5.20, -1.80, -0.20], dtype=np.float64)
+        self.q_max_arm1 = np.array([ 1.60, -0.60,  3.00, -1.30, -1.30,  3.20], dtype=np.float64)
+        self.q_min_arm2 = np.array([-0.30, -2.20,  0.80, -5.40, -1.80, -1.40], dtype=np.float64)
+        self.q_max_arm2 = np.array([ 1.00, -0.10,  3.00, -1.40,  0.30,  0.20], dtype=np.float64)
 
         # Home configurations
         self.q_home1 = self.controller.kinematics_arm1.get_joint_positions()

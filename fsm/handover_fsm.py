@@ -17,7 +17,7 @@ import sys
 import time
 from typing import Optional, Dict, Any, List, Tuple, Union
 import numpy as np
-from scipy.spatial.transform import Rotation as R
+from scipy.spatial.transform import Rotation as R, Slerp
 import mujoco
 
 from control.dual_arm_controller import DualArmController
@@ -90,6 +90,7 @@ class HandoverFSM:
         self.q_home1 = self.kin1.get_joint_positions()
         self.q_home2 = self.kin2.get_joint_positions()
         self.q_pre1: Optional[np.ndarray] = None
+        self.q_approach_waypoints: Optional[List[np.ndarray]] = None
         self.q_gr1: Optional[np.ndarray] = None
         self.q_lift1: Optional[np.ndarray] = None
         self.q_ret1: Optional[np.ndarray] = None
@@ -126,6 +127,32 @@ class HandoverFSM:
         data_kin = mujoco.MjData(self.model)
         kin1_k = RobotKinematics(self.model, data_kin, arm_id=1)
         kin2_k = RobotKinematics(self.model, data_kin, arm_id=2)
+
+        # Smooth Monotonic Cartesian Approach Corridor from Home into Shelf Pick:
+        # Interpolates linear Cartesian positions and Slerp orientations, unwrapped backward from q_gr1.
+        ee_home, quat_home = self.kin1.get_ee_pose()
+        ee_target = best_grasp.pos_grasp
+        r_home = R.from_quat([quat_home[1], quat_home[2], quat_home[3], quat_home[0]])
+        r_target = R.from_quat([quat_gr[1], quat_gr[2], quat_gr[3], quat_gr[0]])
+        slerp = Slerp([0.0, 1.0], R.from_quat([r_home.as_quat(), r_target.as_quat()]))
+
+        q_approach = [self.q_gr1]
+        q_prev = self.q_gr1
+        N_WP = 6
+        for i in range(N_WP - 1, -1, -1):
+            alpha = i / N_WP
+            pos_i = (1 - alpha) * ee_home + alpha * ee_target
+            rot_i = slerp(alpha).as_quat(scalar_first=True)
+            for j, a in enumerate(kin1_k.qpos_addrs):
+                data_kin.qpos[a] = q_prev[j]
+            mujoco.mj_forward(self.model, data_kin)
+            ok_i, q_i = kin1_k.solve_ik_closed_loop(pos_i, rot_i)
+            if not ok_i:
+                return False
+            q_i = kin1_k.unwrap_joint_angles(q_i, q_prev)
+            q_prev = q_i
+            q_approach.insert(0, q_i)
+        self.q_approach_waypoints = q_approach
 
         for i, a in enumerate(kin1_k.qpos_addrs):
             data_kin.qpos[a] = self.q_gr1[i]
@@ -275,15 +302,18 @@ class HandoverFSM:
         self.state_history.append(new_state.name)
 
         if new_state == HandoverState.APPROACH_1:
-            self.traj_arm1 = JointTrajectory(self.q_home1, self.q_pre1, duration=duration)
+            dur = duration if duration is not None else 2.5
+            n_segs = len(self.q_approach_waypoints) - 1
+            dur_per_seg = dur / n_segs
+            self.traj_arm1 = MultiJointTrajectory(self.q_approach_waypoints, [dur_per_seg] * n_segs)
             self.hold_arm2 = self.q_home2
             self.target_grip1 = 0.0
             self.target_grip2 = 0.0
 
         elif new_state == HandoverState.GRASP_1:
-            self.traj_arm1 = JointTrajectory(self.q_pre1, self.q_gr1, duration=1.5)
+            self.hold_arm1 = self.q_gr1
             self.hold_arm2 = self.q_home2
-            self.target_grip1 = 0.0
+            self.target_grip1 = 0.75
             self.target_grip2 = 0.0
 
         elif new_state == HandoverState.LIFT_1:
@@ -385,25 +415,12 @@ class HandoverFSM:
             HandoverState.APPROACH_1,
             HandoverState.LIFT_1,
             HandoverState.RETRACT_1,
+            HandoverState.TRANSFER_1,
         ):
             q1, _, is_done = self.traj_arm1.evaluate(t_in_state)
             q2 = self.hold_arm2
-        elif self.current_state == HandoverState.TRANSFER_1:
-            move_dur = 3.0
-            if t_in_state <= move_dur:
-                q1, _, _ = self.traj_arm1.evaluate(t_in_state)
-            else:
-                q1 = self.q_ho1
-            q2 = self.hold_arm2
-            is_done = t_in_state >= self.stage_duration
         elif self.current_state == HandoverState.GRASP_1:
-            advance_dur = 1.5
-            if t_in_state <= advance_dur:
-                q1 = self.traj_arm1.evaluate(t_in_state)[0]
-                self.target_grip1 = 0.0
-            else:
-                q1 = self.q_gr1
-                self.target_grip1 = 0.75
+            q1 = self.hold_arm1
             q2 = self.hold_arm2
             is_done = t_in_state >= self.stage_duration
         elif self.current_state in (
@@ -492,7 +509,7 @@ class HandoverFSM:
         # 5. State Transition Logic
         if is_done:
             if self.current_state == HandoverState.APPROACH_1:
-                self.transition_to(HandoverState.GRASP_1, duration=2.5)
+                self.transition_to(HandoverState.GRASP_1, duration=1.0)
 
             elif self.current_state == HandoverState.GRASP_1:
                 if not is_held1:
