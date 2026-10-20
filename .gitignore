@@ -55,7 +55,9 @@ Thumbs.db
 
 # Large Simulation Datasets & Replays (keep directories via .gitkeep)
 data/*.hdf5
+data/**/*.hdf5
 data/*.h5
+data/**/*.h5
 data/*.zarr
 data/*.npz
 data/*.bag

@@ -1,0 +1,84 @@
+{
+  "codebase_version": "v2.0",
+  "robot_type": "dual_ur10e_robotiq_2f85",
+  "fps": 50,
+  "total_episodes": 1,
+  "total_frames": 1348,
+  "total_tasks": 1,
+  "features": {
+    "action": {
+      "dtype": "float32",
+      "shape": [
+        14
+      ],
+      "names": [
+        "arm1_pan",
+        "arm1_lift",
+        "arm1_elbow",
+        "arm1_wrist1",
+        "arm1_wrist2",
+        "arm1_wrist3",
+        "arm1_gripper",
+        "arm2_pan",
+        "arm2_lift",
+        "arm2_elbow",
+        "arm2_wrist1",
+        "arm2_wrist2",
+        "arm2_wrist3",
+        "arm2_gripper"
+      ]
+    },
+    "observation.state": {
+      "dtype": "float64",
+      "shape": [
+        14
+      ],
+      "names": [
+        "arm1_pan_pos",
+        "arm1_lift_pos",
+        "arm1_elbow_pos",
+        "arm1_wrist1_pos",
+        "arm1_wrist2_pos",
+        "arm1_wrist3_pos",
+        "arm1_grip_pos",
+        "arm2_pan_pos",
+        "arm2_lift_pos",
+        "arm2_elbow_pos",
+        "arm2_wrist1_pos",
+        "arm2_wrist2_pos",
+        "arm2_wrist3_pos",
+        "arm2_grip_pos"
+      ]
+    },
+    "observation.velocity": {
+      "dtype": "float64",
+      "shape": [
+        14
+      ]
+    },
+    "observation.images.top": {
+      "dtype": "image",
+      "shape": [
+        480,
+        640,
+        3
+      ]
+    },
+    "observation.images.wrist1": {
+      "dtype": "image",
+      "shape": [
+        240,
+        320,
+        3
+      ]
+    },
+    "observation.images.wrist2": {
+      "dtype": "image",
+      "shape": [
+        240,
+        320,
+        3
+      ]
+    }
+  }
+}
