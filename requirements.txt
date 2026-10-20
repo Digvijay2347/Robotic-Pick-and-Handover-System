@@ -26,3 +26,7 @@ pillow>=9.0.0
 # Configuration & Utilities
 pyyaml>=6.0
 tqdm>=4.66.0
+
+# Deep Learning & Policy Training (ACT / Imitation Learning)
+torch>=2.0.0
+torchvision>=0.15.0

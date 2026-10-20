@@ -1,0 +1,39 @@
+# Action Chunking with Transformers (ACT) Configuration
+# Dual UR10e Bimanual Robotic Handover Policy
+
+dataset:
+  hdf5_path: "data/handover_demos.hdf5"
+  stats_path: "data/meta/stats.json"
+  camera_names:
+    - "top"
+    - "wrist1"
+    - "wrist2"
+  # Target resize for uniform backbone feature extraction
+  input_image_size: [112, 112]
+  step_stride: 2          # Subsamples every 2nd step for efficient training
+
+model:
+  chunk_size: 25          # K=25 future action steps (0.50s at 50 Hz)
+  state_dim: 14           # 14-DOF joint positions (qpos)
+  action_dim: 14          # 14-DOF action vector
+  d_model: 256            # Transformer hidden dimensionality
+  nheads: 8               # Multi-head attention heads
+  enc_layers: 3           # Transformer encoder layers
+  dec_layers: 3           # Transformer decoder layers
+  dim_feedforward: 1024   # Feedforward layer expansion
+  latent_dim: 32          # C-VAE style latent dimension z
+  backbone: "resnet18"    # Pretrained visual backbone
+  freeze_backbone: true   # Freeze pretrained ResNet-18 weights for fast training
+  dropout: 0.1
+
+training:
+  batch_size: 16
+  lr_backbone: 1.0e-5     # Low LR for visual feature extractor
+  lr_transformer: 1.0e-4  # Standard LR for transformer layers
+  weight_decay: 1.0e-4
+  kl_weight: 10.0         # beta weight for KL divergence loss
+  num_epochs: 15
+  save_every: 5
+  checkpoint_dir: "outputs/act_handover"
+  seed: 42
+  device: "auto"          # auto detects directml / cpu
