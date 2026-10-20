@@ -313,17 +313,33 @@ def main():
 
                 # Record composite video frame if requested
                 if video_writer is not None:
-                    from PIL import Image
+                    from PIL import Image, ImageDraw
                     img_top = obs["images"]["top"]
                     img_w1 = obs["images"]["wrist1"]
                     img_w2 = obs["images"]["wrist2"]
-                    h_tgt = 240
-                    w_tgt = 320
-                    t_sm = np.array(Image.fromarray(img_top).resize((w_tgt, h_tgt), Image.BILINEAR))
-                    w1_sm = np.array(Image.fromarray(img_w1).resize((w_tgt, h_tgt), Image.BILINEAR))
-                    w2_sm = np.array(Image.fromarray(img_w2).resize((w_tgt, h_tgt), Image.BILINEAR))
-                    comp_row = np.concatenate([t_sm, w1_sm, w2_sm], axis=1)
-                    video_writer.append_data(comp_row)
+                    t_top = Image.fromarray(img_top).resize((640, 480), Image.BILINEAR)
+                    t_w1 = Image.fromarray(img_w1).resize((320, 240), Image.BILINEAR)
+                    t_w2 = Image.fromarray(img_w2).resize((320, 240), Image.BILINEAR)
+                    wrists_col = np.vstack([np.array(t_w1), np.array(t_w2)])
+                    composite = np.hstack([np.array(t_top), wrists_col])
+                    pil_img = Image.fromarray(composite)
+                    draw = ImageDraw.Draw(pil_img)
+                    draw.rectangle([(0, 0), (960, 32)], fill=(15, 17, 23, 220))
+                    g1_str = "CLAMPED" if action_to_apply[6] > 0.0 else "OPEN"
+                    g2_str = "CLAMPED" if action_to_apply[13] > 0.0 else "OPEN"
+                    draw.text(
+                        (12, 8),
+                        f"PHASE 8 ACT ROLLOUT | Step: {step:4d}/{args.max_steps} ({step/50:.2f}s) | Arm 1: [{g1_str} {f1:.0f}N] | Arm 2: [{g2_str} {f2:.0f}N]",
+                        fill=(255, 255, 255)
+                    )
+                    draw.text((700, 8), "Closed-Loop Visuomotor ACT", fill=(100, 200, 255))
+                    draw.rectangle([(10, 40), (140, 58)], fill=(0, 0, 0, 180))
+                    draw.text((16, 43), "OVERHEAD CAM", fill=(200, 230, 255))
+                    draw.rectangle([(650, 40), (790, 58)], fill=(0, 0, 0, 180))
+                    draw.text((656, 43), "ARM 1 WRIST CAM", fill=(200, 230, 255))
+                    draw.rectangle([(650, 280), (790, 298)], fill=(0, 0, 0, 180))
+                    draw.text((656, 283), "ARM 2 WRIST CAM", fill=(200, 230, 255))
+                    video_writer.append_data(np.array(pil_img))
 
                 # Update Viewer if active
                 if viewer_handle is not None:
@@ -343,8 +359,22 @@ def main():
                 if env._check_in_bin() and not is_held1 and not is_held2:
                     in_bin_final = True
                     # Let object settle in bin for 50 steps
-                    for _ in range(50):
-                        env.step(action_to_apply)
+                    for settle_i in range(50):
+                        settle_obs, _, _, _, _ = env.step(action_to_apply)
+                        if video_writer is not None:
+                            img_top = settle_obs["images"]["top"]
+                            img_w1 = settle_obs["images"]["wrist1"]
+                            img_w2 = settle_obs["images"]["wrist2"]
+                            t_top = Image.fromarray(img_top).resize((640, 480), Image.BILINEAR)
+                            t_w1 = Image.fromarray(img_w1).resize((320, 240), Image.BILINEAR)
+                            t_w2 = Image.fromarray(img_w2).resize((320, 240), Image.BILINEAR)
+                            wrists_col = np.vstack([np.array(t_w1), np.array(t_w2)])
+                            composite = np.hstack([np.array(t_top), wrists_col])
+                            pil_img = Image.fromarray(composite)
+                            draw = ImageDraw.Draw(pil_img)
+                            draw.rectangle([(0, 0), (960, 32)], fill=(15, 17, 23, 220))
+                            draw.text((12, 8), f"PHASE 8 ACT ROLLOUT | COMPLETED (IN BIN) | Step: {step+settle_i:4d}", fill=(100, 255, 150))
+                            video_writer.append_data(np.array(pil_img))
                         if viewer_handle is not None:
                             if not viewer_handle.is_running():
                                 break
