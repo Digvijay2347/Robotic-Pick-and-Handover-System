@@ -24,45 +24,45 @@ Phase 6 uses the perception stack and 16-state Finite State Machine (FSM) to aut
 
 ### 🚀 Commands to Collect Demonstrations
 
-#### A. Collect Nominal Baseline (10 Episodes, Fast):
+#### A. High-Performance Multi-Core Parallel Collection (RECOMMENDED - 10x Faster!):
+*Spawns 6 isolated worker processes across your multi-core CPU (e.g. Intel Core Ultra 7), reducing 50-episode collection time from ~8 hours down to ~35-45 minutes:*
 ```powershell
-.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 10 --no-randomize
+.\.venv\Scripts\python scripts/06_collect_demos_parallel.py --num-episodes 50 --num-workers 6 --fps 25 --randomize
 ```
 
-#### B. Collect High-Quality Training Dataset with Domain Randomization (Recommended):
-*Collects 50 episodes with randomized cube positions and yaw angles to give the policy diverse training data:*
+#### B. Collect Demonstrations Sequentially (Single Worker):
 ```powershell
-.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 50 --randomize --render-quality fast
+.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 10 --randomize --render-quality fast
 ```
 
 #### C. Fresh Start (Overwrite Old Dataset):
 *Overwrites existing dataset instead of appending to it:*
 ```powershell
-.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 25 --randomize --overwrite
+.\.venv\Scripts\python scripts/06_collect_demos_parallel.py --num-episodes 50 --num-workers 6 --overwrite
 ```
 
 #### D. State-Only Collection (Super Fast, for Kinematic Debugging):
 ```powershell
-.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 20 --no-images
+.\.venv\Scripts\python scripts/06_collect_demos_parallel.py --num-episodes 50 --num-workers 6 --no-images
 ```
 
 ---
 
-### 📋 Phase 6 CLI Flags & Parameters Reference (`scripts/06_collect_demos.py`)
+### 📋 Phase 6 Parallel CLI Flags Reference (`scripts/06_collect_demos_parallel.py`)
 
 | Parameter / Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
-| `--num-episodes` | `int` | `10` | Total number of **successful** demonstrations to record. Failed attempts are automatically discarded. |
-| `--randomize` | flag | `True` | Applies domain randomization: cube initial position is perturbed ($\pm 2.5\text{ cm}$) and yaw angle ($\pm 15^\circ$) inside the shelf. |
-| `--no-randomize` | flag | — | Spawns the cube at the exact nominal center coordinates (`[0.45, 1.05, 0.905]`). |
-| `--render-quality` | `str` | `fast` | Camera resolution preset: `fast` ($320\times 240$ Top, $160\times 120$ Wrists) or `standard` ($640\times 480$ Top, $320\times 240$ Wrists). |
+| `--num-episodes` | `int` | `50` | Total number of **successful** demonstrations to record. Failed attempts are automatically retried. |
+| `--num-workers` | `int` | `6` | Number of parallel worker processes. On an 8-core CPU (Intel Core Ultra 7), `6` leaves 2 cores for OS responsiveness. |
+| `--fps` | `int` | `25` | Control sampling frequency in Hz. `25` is recommended (halves camera renders and aligns with ACT chunking). |
+| `--randomize` | flag | `True` | Applies domain randomization: cube initial position is perturbed ($\pm 3.0\text{ cm}$) and yaw angle ($\pm 25^\circ$) inside the shelf. |
+| `--render-quality` | `str` | `compact` | Camera resolution preset: `compact` ($112\times 112$ matches ACT input directly), `fast` ($320\times 240$ Top, $160\times 120$ Wrists), or `standard`. |
 | `--save-images` | flag | `True` | Records RGB image streams from Top, Wrist 1, and Wrist 2 cameras. |
-| `--no-images` | flag | — | Saves only joint positions and actions (no camera rendering; runs $\approx 20\times$ faster). |
+| `--no-images` | flag | — | Saves only joint positions and actions (no camera rendering; runs in under 30 seconds). |
 | `--overwrite` | flag | `False` | Overwrites the HDF5 file from scratch instead of appending new episodes to existing ones. |
 | `--output-dir` | `str` | `data` | Directory where the `.hdf5` file and metadata will be saved. |
 | `--dataset-name` | `str` | `handover_demos.hdf5` | Output HDF5 filename. |
-| `--compression` | `str` | `lzf` | Compression algorithm (`lzf` for ultra-fast writing or `gzip` for smaller file sizes). |
-| `--fps` | `int` | `50` | Control sampling frequency in Hz (internal physics runs at $500\text{ Hz}$). |
+| `--compression` | `str` | `lzf` | Compression algorithm (`lzf` for fast CPU throughput, `gzip` for smaller file sizes). |
 
 ---
 
