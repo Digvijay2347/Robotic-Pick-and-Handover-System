@@ -205,13 +205,13 @@ class DualUR10eHandoverEnv(gym.Env):
             "wrist2": wrist2_img,
         }
 
-    def _get_obs(self) -> Dict[str, Any]:
+    def _get_obs(self, render_images: bool = True) -> Dict[str, Any]:
         """Constructs and returns observation dictionary conforming to ALOHA standard."""
         qpos = self._get_qpos_14d()
         qvel = self._get_qvel_14d()
 
         if self.obs_type == "pixels":
-            images = self._render_camera_frames()
+            images = self._render_camera_frames() if render_images else None
             return {
                 "qpos": qpos,
                 "qvel": qvel,
@@ -361,7 +361,7 @@ class DualUR10eHandoverEnv(gym.Env):
             "current_step": self.current_step,
         }
 
-    def step(self, action: np.ndarray) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:
+    def step(self, action: np.ndarray, render_images: bool = True) -> Tuple[Dict[str, Any], float, bool, bool, Dict[str, Any]]:
         """Executes one 50 Hz control step in the Gymnasium environment."""
         self.current_step += 1
 
@@ -383,7 +383,7 @@ class DualUR10eHandoverEnv(gym.Env):
         truncated = bool(self.current_step >= self.max_episode_steps)
 
         # 5. Compile observation and info
-        obs = self._get_obs()
+        obs = self._get_obs(render_images=render_images)
         info = self._get_info()
 
         if self.render_mode == "human" and self.viewer is not None:

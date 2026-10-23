@@ -266,13 +266,14 @@ def main():
                 norm_qpos = norm_qpos_fn(raw_qpos)
                 qpos_t = torch.from_numpy(norm_qpos).float().unsqueeze(0).to(device)
 
-                # Preprocess camera images
-                images_t = preprocess_images(obs["images"], target_size=image_size)
-                images_t = {k: v.to(device) for k, v in images_t.items()}
-
                 # 2. Query Policy (every step / infer_stride for ensembling, or every replan_freq steps)
                 should_query = (step % max(1, args.infer_stride) == 0) if args.temporal_ensemble else (step % args.replan_freq == 0)
                 if should_query:
+                    # Preprocess camera images only when actively querying policy
+                    if obs.get("images") is not None:
+                        images_t = preprocess_images(obs["images"], target_size=image_size)
+                        images_t = {k: v.to(device) for k, v in images_t.items()}
+
                     with torch.no_grad():
                         pred_chunk_t = model.predict_action_chunk(images_t, qpos_t)  # (1, K, 14)
                         norm_chunk = pred_chunk_t.squeeze(0).cpu().numpy()          # (K, 14)
@@ -316,8 +317,13 @@ def main():
 
                 action_to_apply = np.clip(action_to_apply, -1.0, 1.0)
 
-                # 4. Environment Step (50 Hz control rate)
-                next_obs, reward, terminated, truncated, info = env.step(action_to_apply)
+                # Determine if next step needs fresh offscreen camera frames:
+                next_step = step + 1
+                next_needs_query = (next_step % max(1, args.infer_stride) == 0) if args.temporal_ensemble else (next_step % args.replan_freq == 0)
+                need_render = (video_writer is not None) or next_needs_query
+
+                # 4. Environment Step (50 Hz control rate, with lazy camera rendering)
+                next_obs, reward, terminated, truncated, info = env.step(action_to_apply, render_images=need_render)
 
                 if info.get("shelf_collision", False):
                     shelf_coll = True
@@ -377,7 +383,7 @@ def main():
                     in_bin_final = True
                     # Let object settle in bin for 50 steps
                     for settle_i in range(50):
-                        settle_obs, _, _, _, _ = env.step(action_to_apply)
+                        settle_obs, _, _, _, _ = env.step(action_to_apply, render_images=(video_writer is not None))
                         if video_writer is not None:
                             img_top = settle_obs["images"]["top"]
                             img_w1 = settle_obs["images"]["wrist1"]
