@@ -3,11 +3,15 @@ Base Grasp Planner Interface & Data Structures for 6-DOF Robotic Grasping.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import List, Optional, Any
 from dataclasses import dataclass
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import open3d as o3d
+
+try:
+    import open3d as o3d
+except Exception:
+    o3d = None
 
 
 @dataclass
@@ -50,7 +54,7 @@ class BaseGraspPlanner(ABC):
     @abstractmethod
     def plan_grasps(
         self,
-        pcd: o3d.geometry.PointCloud,
+        pcd: Any,
         num_candidates: int = 10,
         cluster_id: int = -1,
     ) -> List[GraspCandidate]:

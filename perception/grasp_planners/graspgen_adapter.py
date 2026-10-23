@@ -9,9 +9,13 @@ Wraps the NVlabs/GraspGen diffusion-based grasp synthesis model:
 
 import sys
 import logging
-from typing import List, Optional
+from typing import List, Optional, Any
 import numpy as np
-import open3d as o3d
+
+try:
+    import open3d as o3d
+except Exception:
+    o3d = None
 from perception.grasp_planners.base_planner import BaseGraspPlanner, GraspCandidate
 from perception.grasp_planners.geometric_planner import GeometricGraspPlanner
 
@@ -57,7 +61,7 @@ class GraspGenAdapter(BaseGraspPlanner):
 
     def plan_grasps(
         self,
-        pcd: o3d.geometry.PointCloud,
+        pcd: Any,
         num_candidates: int = 10,
         cluster_id: int = -1,
     ) -> List[GraspCandidate]:

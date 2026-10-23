@@ -10,10 +10,15 @@ Generates SE(3) candidate grasp poses from segmented 3D point clouds:
 - Scores candidates using antipodal opposition, aperture clearance, and gravity alignment.
 """
 
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-import open3d as o3d
+
+try:
+    import open3d as o3d
+except Exception:
+    o3d = None
+
 from perception.grasp_planners.base_planner import BaseGraspPlanner, GraspCandidate
 
 
@@ -34,7 +39,7 @@ class GeometricGraspPlanner(BaseGraspPlanner):
 
     def plan_grasps(
         self,
-        pcd: o3d.geometry.PointCloud,
+        pcd: Any,
         num_candidates: int = 10,
         cluster_id: int = -1,
     ) -> List[GraspCandidate]:
@@ -45,14 +50,7 @@ class GeometricGraspPlanner(BaseGraspPlanner):
         if len(points) < 15:
             return []
 
-        # 1. Surface normal estimation
-        pcd_copy = o3d.geometry.PointCloud(pcd)
-        pcd_copy.estimate_normals(
-            search_param=o3d.geometry.KDTreeSearchParamHybrid(radius=0.03, max_nn=30)
-        )
-        normals = np.asarray(pcd_copy.normals)
-
-        # 2. PCA decomposition
+        # 1. PCA decomposition
         mean_p = np.mean(points, axis=0)
         centroid = 0.5 * (np.min(points, axis=0) + np.max(points, axis=0))
         centered = points - mean_p

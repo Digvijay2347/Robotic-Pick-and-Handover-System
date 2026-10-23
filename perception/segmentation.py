@@ -9,21 +9,29 @@ Provides:
 - Color and spatial target matching to identify desired grasp objects.
 """
 
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any
 from dataclasses import dataclass
 import numpy as np
-import open3d as o3d
+
+try:
+    import open3d as o3d
+    HAS_O3D = True
+except Exception:
+    HAS_O3D = False
+    o3d = None
+
+from perception.pointcloud import NumpyPointCloud
 
 
 @dataclass
 class ObjectCluster:
     """Represents a segmented 3D object cluster from the scene point cloud."""
     cluster_id: int
-    pcd: o3d.geometry.PointCloud
+    pcd: Any
     points: np.ndarray
     colors: np.ndarray
     centroid: np.ndarray          # 3D spatial center [x, y, z]
-    obb: o3d.geometry.OrientedBoundingBox
+    obb: Any
     extent: np.ndarray            # [length, width, height] along principal axes
     mean_color: np.ndarray        # Normalized RGB [r, g, b] in [0, 1]
 
@@ -45,20 +53,25 @@ class SceneSegmenter:
         self.dbscan_eps = dbscan_eps
         self.dbscan_min_points = dbscan_min_points
 
-    def crop_shelf(self, pcd: o3d.geometry.PointCloud) -> o3d.geometry.PointCloud:
+    def crop_shelf(self, pcd: Any) -> Any:
         """Crops point cloud to the shelf bounding volume."""
-        bbox = o3d.geometry.AxisAlignedBoundingBox(
-            min_bound=self.shelf_roi_min,
-            max_bound=self.shelf_roi_max
-        )
-        return pcd.crop(bbox)
+        if hasattr(pcd, "crop"):
+            if HAS_O3D and o3d is not None:
+                bbox = o3d.geometry.AxisAlignedBoundingBox(
+                    min_bound=self.shelf_roi_min,
+                    max_bound=self.shelf_roi_max
+                )
+                return pcd.crop(bbox)
+            else:
+                return pcd.crop(self.shelf_roi_min, self.shelf_roi_max)
+        return pcd
 
     def remove_shelf_planes(
         self,
-        pcd: o3d.geometry.PointCloud,
+        pcd: Any,
         max_planes: int = 5,
         min_inliers: int = 250,
-    ) -> o3d.geometry.PointCloud:
+    ) -> Any:
         """Iteratively strips large planar surfaces (shelf plates, dividers, walls)."""
         current_pcd = pcd
         for _ in range(max_planes):
@@ -67,7 +80,7 @@ class SceneSegmenter:
             _, inliers = current_pcd.segment_plane(
                 distance_threshold=self.plane_distance_threshold,
                 ransac_n=3,
-                num_iterations=400
+                num_iterations=200
             )
             if len(inliers) < min_inliers:
                 break
@@ -75,15 +88,9 @@ class SceneSegmenter:
 
         return current_pcd
 
-    def segment_objects(self, pcd: o3d.geometry.PointCloud) -> List[ObjectCluster]:
+    def segment_objects(self, pcd: Any) -> List[ObjectCluster]:
         """
         Segments and extracts distinct 3D object clusters from point cloud.
-
-        Pipeline:
-        1. Crop to shelf ROI.
-        2. Remove planar structures (shelves, walls).
-        3. Run DBSCAN Euclidean clustering.
-        4. Compute OBB, centroids, dimensions, and mean color for each cluster.
         """
         cropped = self.crop_shelf(pcd)
         non_planar = self.remove_shelf_planes(cropped)
@@ -112,9 +119,12 @@ class SceneSegmenter:
             if len(c_points) < self.dbscan_min_points or len(c_points) > 5000:
                 continue
 
-            c_pcd = o3d.geometry.PointCloud()
-            c_pcd.points = o3d.utility.Vector3dVector(c_points)
-            c_pcd.colors = o3d.utility.Vector3dVector(c_colors)
+            if HAS_O3D and o3d is not None:
+                c_pcd = o3d.geometry.PointCloud()
+                c_pcd.points = o3d.utility.Vector3dVector(c_points)
+                c_pcd.colors = o3d.utility.Vector3dVector(c_colors)
+            else:
+                c_pcd = NumpyPointCloud(c_points, c_colors)
 
             # Accurate 3D spatial center from bounding volume midpoint
             aabb_min = np.min(c_points, axis=0)
@@ -130,7 +140,10 @@ class SceneSegmenter:
             except Exception:
                 aabb = c_pcd.get_axis_aligned_bounding_box()
                 extent = np.asarray(aabb.get_extent())
-                obb = o3d.geometry.OrientedBoundingBox(centroid, np.eye(3), extent)
+                if HAS_O3D and o3d is not None:
+                    obb = o3d.geometry.OrientedBoundingBox(centroid, np.eye(3), extent)
+                else:
+                    obb = aabb
 
             # Skip clusters that are overly elongated (like thin divider edges)
             if np.max(extent) > 0.40:
