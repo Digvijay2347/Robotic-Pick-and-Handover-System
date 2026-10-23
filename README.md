@@ -93,13 +93,14 @@ graph TB
 | **1** | **MJCF Scene & Asset Assembly** | 🟢 Complete |
 | **2** | **Kinematics & Single-Arm Pick Baseline** | 🟢 Complete |
 | **3** | **Perception & 6-DOF Grasp Planning** | 🟢 Complete |
-| **4** | **Coordinated Dual-Arm Handover FSM** | ⚪ Queued |
-| **5** | **Gym-ALOHA Environment Wrapper** | ⚪ Queued |
-| **6** | **Expert Demonstration Dataset Collection** | ⚪ Queued |
-| **7** | **Policy Training (ACT / LeRobot)** | ⚪ Queued |
-| **8** | **Benchmarking, Telemetry & Polish** | ⚪ Queued |
+| **4** | **Coordinated Dual-Arm Handover FSM** | 🟢 Complete |
+| **5** | **Gym-ALOHA Environment Wrapper** | 🟢 Complete |
+| **6** | **Expert Demonstration Dataset Collection** | 🟢 Complete |
+| **7** | **Policy Training (ACT / LeRobot)** | 🟢 Complete |
+| **8** | **Benchmarking, Telemetry & Polish** | 🟢 Complete |
 
-For full technical specifications of each phase, see [`implementation_plan.md`](implementation_plan.md) and [`SETUP_GUIDE.md`](SETUP_GUIDE.md).
+> 📖 **Comprehensive Pipeline Manual**: See [`PIPELINE_GUIDE.md`](PIPELINE_GUIDE.md) for full parameter references, flags, and recipes for Phases 6, 7, and 8.  
+> 📖 Full architecture and step-by-step logs: [`implementation_plan.md`](implementation_plan.md) and [`SETUP_GUIDE.md`](SETUP_GUIDE.md).
 
 ---
 
@@ -126,13 +127,26 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Run the Autonomous Single-Arm Pick Baseline
-```powershell
-# Interactive 3D Viewer Mode (watch live in MuJoCo):
-.\.venv\Scripts\python scripts/02_test_ik_reach.py --viewer
+### Quick Commands
 
-# Headless fast physics benchmark:
-.\.venv\Scripts\python scripts/02_test_ik_reach.py
+#### 1. Watch Trained ACT Policy in 3D MuJoCo Simulation (Phase 8):
+```powershell
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --no-ensemble --replan-freq 20
+```
+
+#### 2. Record Multi-Camera HD Video of Trained Policy:
+```powershell
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --record --no-ensemble --replan-freq 20 --num-episodes 1
+```
+
+#### 3. Collect Expert Demonstrations (Phase 6):
+```powershell
+.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 50 --randomize
+```
+
+#### 4. Train the ACT Policy (Phase 7):
+```powershell
+.\.venv\Scripts\python policies/train_act.py --epochs 25 --batch-size 16
 ```
 
 ---
