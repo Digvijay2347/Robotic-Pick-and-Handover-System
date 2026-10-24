@@ -307,13 +307,15 @@ class EpisodeRecorder:
                 clean_ep = {}
                 for k, v in ep.items():
                     if isinstance(v, (np.ndarray, list)):
-                        clean_ep[k] = [float(x) if isinstance(x, (np.floating, float)) else x for x in v]
+                        clean_ep[k] = [float(x) if isinstance(x, (np.floating, float)) else bool(x) if isinstance(x, (np.bool_, bool)) else x for x in v]
                     elif isinstance(v, (np.floating, float)):
                         clean_ep[k] = float(v)
                     elif isinstance(v, (np.integer, int)):
                         clean_ep[k] = int(v)
+                    elif isinstance(v, (np.bool_, bool)):
+                        clean_ep[k] = bool(v)
                     else:
-                        clean_ep[k] = v
+                        clean_ep[k] = str(v) if not isinstance(v, (str, dict)) else v
                 f.write(json.dumps(clean_ep) + "\n")
 
         # 3. meta/stats.json (Compute dataset-wide statistics across all episodes)
