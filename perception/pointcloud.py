@@ -195,9 +195,13 @@ def capture_rgbd(
 
     # 2. Render linear metric depth
     renderer.enable_depth_rendering()
-    renderer.update_scene(data, camera=cam_id)
     depth = renderer.render().copy()
     renderer.close()
+    try:
+        import glfw
+        glfw.make_context_current(None)
+    except Exception:
+        pass
 
     cam_pos = data.cam_xpos[cam_id].copy()
     cam_mat = data.cam_xmat[cam_id].reshape(3, 3).copy()

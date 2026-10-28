@@ -67,8 +67,10 @@ class SimulationService:
         self.collision_checker = CollisionChecker(self.model, self.data)
         self.fsm = HandoverFSM(self.model, self.data, controller=self.controller, collision_checker=self.collision_checker)
 
-        # Discovered camera mapping
+        # Discovered camera mapping (front_cam and iso_cam first)
         self.camera_names = [
+            "front_cam",
+            "iso_cam",
             "overhead_cam",
             "shelf_cam",
             "handover_cam",
@@ -86,6 +88,11 @@ class SimulationService:
         self.render_width = 640
         self.render_height = 480
         self.renderer = mujoco.Renderer(self.model, height=self.render_height, width=self.render_width)
+        try:
+            import glfw
+            glfw.make_context_current(None)
+        except Exception:
+            pass
 
         # Frame cache: {camera_name: {"bytes": b"...", "timestamp": float}}
         self._frame_cache: Dict[str, Dict[str, Any]] = {
@@ -153,7 +160,7 @@ class SimulationService:
         Uses TTL cache so multiple concurrent connections share rendered frames.
         """
         if camera_name not in self.camera_ids:
-            camera_name = "overhead_cam"
+            camera_name = "front_cam" if "front_cam" in self.camera_ids else "overhead_cam"
 
         now = time.time()
         cached = self._frame_cache.get(camera_name)
@@ -165,6 +172,11 @@ class SimulationService:
             cid = self.camera_ids[camera_name]
             self.renderer.update_scene(self.data, camera=cid)
             rgb = self.renderer.render()
+            try:
+                import glfw
+                glfw.make_context_current(None)
+            except Exception:
+                pass
 
         # Compress to JPEG outside lock to minimize contention
         buf = io.BytesIO()
@@ -243,6 +255,7 @@ class SimulationService:
     def _run_fsm_worker(self):
         """Asynchronous execution worker for the 16-stage Handover FSM."""
         t_start_real = time.time()
+        self._stop_requested = False
         print(f"[SimulationService] Starting FSM cycle #{self.cycle_count + 1}...")
 
         try:
@@ -261,9 +274,11 @@ class SimulationService:
                 self.fsm.dual_hold_confirmed = False
 
             if self._stop_requested:
+                print("[SimulationService] Cycle cancelled during initialization.")
                 return
 
             # Step 1: Perception scan
+            print("[SimulationService] [1/3] Capturing 3D point cloud & segmenting objects...")
             with self._lock:
                 self.fsm.transition_to(HandoverState.SCAN)
                 pcd = capture_scene_pointcloud(self.model, self.data)
@@ -278,9 +293,11 @@ class SimulationService:
                 return
 
             if self._stop_requested:
+                print("[SimulationService] Cycle cancelled after perception scan.")
                 return
 
             # Step 2: Grasp planning
+            print(f"[SimulationService] [2/3] Planning 6-DOF grasps for red box at [{target.centroid[0]:.3f}, {target.centroid[1]:.3f}, {target.centroid[2]:.3f}]...")
             with self._lock:
                 self.fsm.transition_to(HandoverState.PLAN_GRASP)
                 planner = GeometricGraspPlanner()
@@ -305,20 +322,26 @@ class SimulationService:
                 return
 
             if self._stop_requested:
+                print("[SimulationService] Cycle cancelled after trajectory planning.")
                 return
 
             # Step 3: Begin motion trajectory execution
+            print("[SimulationService] [3/3] Trajectories generated! Commencing motion -> APPROACH_1")
             with self._lock:
                 self.fsm.transition_to(HandoverState.APPROACH_1, duration=2.0)
 
             batch_size = 5
             is_finished = False
+            last_logged_state = HandoverState.APPROACH_1
 
             while not self._stop_requested and not is_finished:
                 t_loop = time.perf_counter()
                 with self._lock:
                     for _ in range(batch_size):
                         curr_state, is_finished = self.fsm.step()
+                        if curr_state != last_logged_state:
+                            print(f"[SimulationService] FSM Transition: {last_logged_state.name} -> {curr_state.name}")
+                            last_logged_state = curr_state
                         if is_finished or self._stop_requested:
                             break
 
@@ -413,7 +436,9 @@ class SimulationService:
             self._stop_requested = True
             time.sleep(0.1)
 
+        self.is_running_fsm = False
         self._reset_internal()
+        self._stop_requested = False
         return {"status": "ok", "message": "Simulation reset to initial keyframe"}
 
     def shutdown(self):

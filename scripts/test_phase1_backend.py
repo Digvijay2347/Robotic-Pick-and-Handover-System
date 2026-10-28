@@ -32,7 +32,7 @@ def run_tests():
         print(f"  --> Memory Used   : {data['host']['memory_used_gb']} GB / {data['host']['memory_total_gb']} GB")
         print(f"  --> Sim Cameras   : {data['simulation']['cameras']}")
         assert data["status"] == "online"
-        assert len(data["simulation"]["cameras"]) == 5
+        assert len(data["simulation"]["cameras"]) == 7
         print("  [PASS] System status endpoint verified.")
 
         # 2. Camera Feeds Listing
@@ -40,7 +40,7 @@ def run_tests():
         res = client.get("/api/stream/cameras")
         assert res.status_code == 200
         cam_data = res.json()
-        expected_cams = ["overhead_cam", "shelf_cam", "handover_cam", "arm1_wrist_cam", "arm2_wrist_cam"]
+        expected_cams = ["front_cam", "iso_cam", "overhead_cam", "shelf_cam", "handover_cam", "arm1_wrist_cam", "arm2_wrist_cam"]
         for c in expected_cams:
             assert c in cam_data["cameras"], f"Missing camera {c}"
         print(f"  --> Registered {cam_data['count']} cameras: {cam_data['cameras']}")

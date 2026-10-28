@@ -568,19 +568,21 @@
                     Live Sensor Viewport
                 </div>
                 <div class="camera-tabs" id="cameraTabs">
-                    <button class="cam-btn active" data-cam="overhead_cam">Overhead</button>
-                    <button class="cam-btn" data-cam="shelf_cam">Shelf</button>
-                    <button class="cam-btn" data-cam="handover_cam">Handover Zone</button>
-                    <button class="cam-btn" data-cam="arm1_wrist_cam">Arm 1 Wrist</button>
-                    <button class="cam-btn" data-cam="arm2_wrist_cam">Arm 2 Wrist</button>
+                    <button class="cam-btn active" data-cam="front_cam">🎥 3D Perspective</button>
+                    <button class="cam-btn" data-cam="iso_cam">📐 Isometric 3/4</button>
+                    <button class="cam-btn" data-cam="shelf_cam">📦 Shelf Cam</button>
+                    <button class="cam-btn" data-cam="handover_cam">🔄 Handover Zone</button>
+                    <button class="cam-btn" data-cam="overhead_cam">🗺️ Overhead View</button>
+                    <button class="cam-btn" data-cam="arm1_wrist_cam">🦾 Arm 1 Wrist</button>
+                    <button class="cam-btn" data-cam="arm2_wrist_cam">🦾 Arm 2 Wrist</button>
                 </div>
             </div>
 
             <div class="viewport-wrapper">
-                <img id="cameraFeed" src="/api/stream/feed/overhead_cam" alt="MuJoCo Sensor Stream">
+                <img id="cameraFeed" src="/api/stream/feed/front_cam" alt="MuJoCo Sensor Stream">
                 <div class="live-overlay">
                     <div class="live-dot"></div>
-                    <span id="camLabel">OVERHEAD_CAM</span>
+                    <span id="camLabel">3D PERSPECTIVE (FRONT)</span>
                     <span>• 640×480</span>
                 </div>
                 <div class="viewport-actions">
@@ -695,7 +697,7 @@
 
     <script>
         const JOINT_NAMES = ["Pan", "Lift", "Elbow", "Wrist 1", "Wrist 2", "Wrist 3"];
-        let currentCamera = "overhead_cam";
+        let currentCamera = "front_cam";
         let lastFsmState = "IDLE";
 
         // Initialize Joint Rows
@@ -729,8 +731,12 @@
                 btn.classList.add("active");
                 currentCamera = btn.dataset.cam;
                 document.getElementById("cameraFeed").src = `/api/stream/feed/${currentCamera}`;
-                document.getElementById("camLabel").textContent = currentCamera.toUpperCase();
-                logConsole(`Switched camera viewport to [${currentCamera}]`, "log-info");
+                const label = btn.textContent.trim();
+                document.getElementById("camLabel").textContent = label.toUpperCase();
+                logConsole(`Switched camera viewport to [${label}]`, "log-info");
+                if (currentCamera.includes("wrist")) {
+                    logConsole(`ℹ️ Wrist camera is mounted on arm gripper. At home pose, it points inward. It moves dynamically to inspect grasp during pickup.`, "log-warn");
+                }
             });
         });
 
@@ -747,12 +753,20 @@
 
         // Action Buttons
         async function triggerAction(action) {
-            logConsole(`Dispatching command: /api/fsm/${action}...`, "log-info");
+            if (action === "start") {
+                logConsole(`▶ Starting autonomous handover: Step 1 (RGB-D 3D scan & grasp synthesis in progress)...`, "log-info");
+            } else if (action === "stop") {
+                logConsole(`⏹ Emergency stop triggered: Halting active trajectory...`, "log-warn");
+            } else if (action === "randomize") {
+                logConsole(`🎲 Perturbing cube pose on shelf...`, "log-info");
+            } else if (action === "reset") {
+                logConsole(`🔄 Resetting simulation to initial keyframe...`, "log-info");
+            }
             try {
                 const res = await fetch(`/api/fsm/${action}`, { method: "POST" });
                 const data = await res.json();
                 if (data.status === "ok") {
-                    logConsole(`Command [${action}] executed: ${data.message}`, "log-ok");
+                    logConsole(`Command [${action}] acknowledged: ${data.message}`, "log-ok");
                 } else {
                     logConsole(`Command [${action}] failed: ${data.message}`, "log-warn");
                 }

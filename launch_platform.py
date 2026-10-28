@@ -44,7 +44,7 @@ def main():
     print(f"  Access URL        : {url}")
     print(f"  API Docs (Swagger): {url}/docs")
     print(f"  WebSocket Endpoint: ws://{args.host}:{args.port}/ws/telemetry")
-    print(f"  Video Stream      : {url}/api/stream/feed/overhead_cam")
+    print(f"  Video Stream      : {url}/api/stream/feed/front_cam")
     print("=" * 80 + "\n")
 
     if not args.no_browser:
