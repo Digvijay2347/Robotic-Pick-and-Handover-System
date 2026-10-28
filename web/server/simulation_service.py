@@ -10,6 +10,7 @@ import sys
 import time
 import io
 import threading
+from datetime import datetime
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 from PIL import Image
@@ -112,6 +113,14 @@ class SimulationService:
         self.target_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "target_object")
         self.target_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "target_object_joint")
 
+        # MP4 Video Recording state
+        self._is_recording = False
+        self._record_camera = "front_cam"
+        self._record_writer = None
+        self._record_filepath: Optional[str] = None
+        self._record_start_time = 0.0
+        self._record_frames = 0
+
         # Initial reset and physics settling
         self._reset_internal()
 
@@ -182,6 +191,14 @@ class SimulationService:
         buf = io.BytesIO()
         Image.fromarray(rgb).save(buf, format="JPEG", quality=quality, optimize=False)
         frame_bytes = buf.getvalue()
+
+        # Append to active MP4 recording if enabled
+        if self._is_recording and camera_name == self._record_camera and self._record_writer:
+            try:
+                self._record_writer.append_data(rgb)
+                self._record_frames += 1
+            except Exception as e:
+                print(f"[SimulationService] Frame record error: {e}")
 
         # Update cache
         self._frame_cache[camera_name] = {
@@ -441,11 +458,103 @@ class SimulationService:
         self._stop_requested = False
         return {"status": "ok", "message": "Simulation reset to initial keyframe"}
 
+    def start_recording(self, camera_name: str = "front_cam") -> Dict[str, Any]:
+        """Starts MP4 video capture for the specified camera."""
+        with self._lock:
+            if self._is_recording:
+                return {
+                    "status": "warning",
+                    "message": "Recording already in progress",
+                    "camera": self._record_camera,
+                    "filepath": self._record_filepath,
+                }
+
+            if camera_name not in self.camera_ids:
+                camera_name = "front_cam"
+
+            recordings_dir = os.path.join(ROOT_DIR, "recordings")
+            os.makedirs(recordings_dir, exist_ok=True)
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"handover_{camera_name}_{timestamp_str}.mp4"
+            filepath = os.path.join(recordings_dir, filename)
+
+            try:
+                import imageio
+                self._record_writer = imageio.get_writer(
+                    filepath,
+                    fps=20,
+                    quality=8,
+                    macro_block_size=1,
+                )
+                self._record_filepath = filepath
+                self._record_camera = camera_name
+                self._record_start_time = time.time()
+                self._record_frames = 0
+                self._is_recording = True
+                print(f"[SimulationService] Started recording '{camera_name}' -> {filename}")
+                return {
+                    "status": "ok",
+                    "message": f"Started recording camera '{camera_name}'",
+                    "filename": filename,
+                    "filepath": filepath,
+                }
+            except Exception as e:
+                print(f"[SimulationService] Failed to start recording: {e}")
+                return {"status": "error", "message": f"Failed to initialize video writer: {str(e)}"}
+
+    def stop_recording(self) -> Dict[str, Any]:
+        """Stops active MP4 video capture and finalizes the file."""
+        with self._lock:
+            if not self._is_recording or self._record_writer is None:
+                return {"status": "warning", "message": "No active recording to stop"}
+
+            try:
+                self._record_writer.close()
+            except Exception as e:
+                print(f"[SimulationService] Error finalizing recording: {e}")
+
+            duration = time.time() - self._record_start_time
+            frames = self._record_frames
+            filepath = self._record_filepath
+            size_mb = 0.0
+            if filepath and os.path.exists(filepath):
+                size_mb = round(os.path.getsize(filepath) / (1024 * 1024), 2)
+
+            self._is_recording = False
+            self._record_writer = None
+            self._record_filepath = None
+
+            print(f"[SimulationService] Finalized recording: {frames} frames, {duration:.1f}s, {size_mb} MB")
+            return {
+                "status": "ok",
+                "message": "Video recording finalized",
+                "filepath": filepath,
+                "frames": frames,
+                "duration_sec": round(duration, 2),
+                "size_mb": size_mb,
+            }
+
+    def get_recording_status(self) -> Dict[str, Any]:
+        """Returns current recording state and stats."""
+        with self._lock:
+            return {
+                "is_recording": self._is_recording,
+                "camera": self._record_camera if self._is_recording else None,
+                "duration_sec": round(time.time() - self._record_start_time, 2) if self._is_recording else 0.0,
+                "frames": self._record_frames if self._is_recording else 0,
+                "filepath": self._record_filepath if self._is_recording else None,
+            }
+
     def shutdown(self):
         """Clean shutdown of background threads and renderers."""
         print("[SimulationService] Shutting down simulation service...")
         self._shutdown_event.set()
         self._stop_requested = True
+        if self._is_recording and self._record_writer:
+            try:
+                self._record_writer.close()
+            except Exception:
+                pass
         if self._idle_thread and self._idle_thread.is_alive():
             self._idle_thread.join(timeout=1.0)
         with self._lock:

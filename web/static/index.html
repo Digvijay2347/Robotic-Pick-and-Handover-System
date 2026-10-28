@@ -313,6 +313,68 @@
             color: var(--accent-cyan);
         }
 
+        .btn-record {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .rec-dot-icon {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            display: inline-block;
+            transition: all 0.2s ease;
+        }
+
+        .btn-record.recording-active {
+            background: rgba(255, 68, 68, 0.22);
+            border-color: var(--accent-red);
+            color: #ff6b6b;
+            box-shadow: 0 0 10px rgba(255, 68, 68, 0.4);
+            animation: pulse-recording 1.5s infinite;
+        }
+
+        .btn-record.recording-active .rec-dot-icon {
+            background: #ff4444;
+            box-shadow: 0 0 6px #ff4444;
+        }
+
+        @keyframes pulse-recording {
+            0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); }
+        }
+
+        .rec-overlay-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: rgba(255, 68, 68, 0.22);
+            border: 1px solid rgba(255, 68, 68, 0.6);
+            color: #ff6b6b;
+            padding: 2px 7px;
+            border-radius: 4px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            margin-left: 4px;
+        }
+
+        .rec-blink-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #ff4444;
+            box-shadow: 0 0 6px #ff4444;
+            animation: blink-rec 1s infinite;
+        }
+
+        @keyframes blink-rec {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
         /* Control Toolbar */
         .controls-grid {
             display: grid;
@@ -629,8 +691,16 @@
                     <div class="live-dot"></div>
                     <span id="camLabel">3D PERSPECTIVE (FRONT)</span>
                     <span>• HD 960×720</span>
+                    <div id="recOverlayBadge" class="rec-overlay-badge" style="display: none;">
+                        <span class="rec-blink-dot"></span>
+                        <span>REC <span id="recTimerText">00:00</span></span>
+                    </div>
                 </div>
                 <div class="viewport-actions">
+                    <button class="action-icon-btn btn-record" id="recordBtn" onclick="toggleRecording()">
+                        <span class="rec-dot-icon"></span>
+                        <span id="recordBtnLabel">Record</span>
+                    </button>
                     <button class="action-icon-btn" onclick="captureSnapshot()">📸 Snapshot</button>
                 </div>
             </div>
@@ -822,6 +892,152 @@
 
         function captureSnapshot() {
             window.open(`/api/stream/snapshot/${currentCamera}?quality=95`, "_blank");
+        }
+
+        // Video Recording Controller (Client-Side MediaRecorder + Server MP4 Archival)
+        let isRecording = false;
+        let mediaRecorder = null;
+        let recordedChunks = [];
+        let recordTimerInterval = null;
+        let recordStartTime = 0;
+        let recordCanvas = null;
+        let recordCtx = null;
+        let recordDrawInterval = null;
+
+        async function toggleRecording() {
+            if (!isRecording) {
+                await startRecording();
+            } else {
+                await stopRecording();
+            }
+        }
+
+        async function startRecording() {
+            const feedImg = document.getElementById("cameraFeed");
+            if (!feedImg) return;
+
+            // Offscreen canvas matching native HD stream
+            if (!recordCanvas) {
+                recordCanvas = document.createElement("canvas");
+                recordCanvas.width = 960;
+                recordCanvas.height = 720;
+                recordCtx = recordCanvas.getContext("2d");
+            }
+
+            recordedChunks = [];
+
+            // 1. Initialize client-side canvas capture
+            try {
+                recordDrawInterval = setInterval(() => {
+                    try {
+                        if (feedImg.complete && feedImg.naturalWidth > 0) {
+                            recordCtx.drawImage(feedImg, 0, 0, recordCanvas.width, recordCanvas.height);
+                        }
+                    } catch (e) {}
+                }, 40);
+
+                const stream = recordCanvas.captureStream(25);
+                let mimeType = "video/webm;codecs=vp9";
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = "video/webm;codecs=vp8";
+                }
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = "video/webm";
+                }
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 3000000 });
+                mediaRecorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        recordedChunks.push(e.data);
+                    }
+                };
+                mediaRecorder.onstop = saveBrowserVideo;
+                mediaRecorder.start(200);
+            } catch (err) {
+                console.warn("[Recorder] Client MediaRecorder error:", err);
+            }
+
+            // 2. Trigger server-side MP4 recorder in recordings/
+            try {
+                fetch(`/api/stream/record/start?camera_name=${currentCamera}`, { method: "POST" });
+            } catch (e) {
+                console.warn("[Recorder] Server record trigger error:", e);
+            }
+
+            isRecording = true;
+            recordStartTime = Date.now();
+
+            // 3. UI Updates
+            const recBtn = document.getElementById("recordBtn");
+            recBtn.classList.add("recording-active");
+            document.getElementById("recordBtnLabel").textContent = "Stop (00:00)";
+            document.getElementById("recOverlayBadge").style.display = "inline-flex";
+
+            recordTimerInterval = setInterval(() => {
+                const elapsedSec = Math.floor((Date.now() - recordStartTime) / 1000);
+                const mm = String(Math.floor(elapsedSec / 60)).padStart(2, "0");
+                const ss = String(elapsedSec % 60).padStart(2, "0");
+                const timeStr = `${mm}:${ss}`;
+                document.getElementById("recTimerText").textContent = timeStr;
+                document.getElementById("recordBtnLabel").textContent = `Stop (${timeStr})`;
+            }, 500);
+
+            logConsole(`[RECORDER] Started recording [${currentCamera}]...`, "log-ok");
+        }
+
+        async function stopRecording() {
+            if (!isRecording) return;
+            isRecording = false;
+
+            if (recordTimerInterval) {
+                clearInterval(recordTimerInterval);
+                recordTimerInterval = null;
+            }
+            if (recordDrawInterval) {
+                clearInterval(recordDrawInterval);
+                recordDrawInterval = null;
+            }
+
+            // Stop client MediaRecorder
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+
+            // Stop server MP4 recording
+            try {
+                const res = await fetch("/api/stream/record/stop", { method: "POST" });
+                const data = await res.json();
+                if (data.status === "ok") {
+                    logConsole(`[RECORDER] Server MP4 saved: ${data.duration_sec}s (${data.size_mb} MB) -> ${data.filepath}`, "log-ok");
+                }
+            } catch (e) {
+                console.warn("[Recorder] Server stop error:", e);
+            }
+
+            // Reset UI
+            const recBtn = document.getElementById("recordBtn");
+            recBtn.classList.remove("recording-active");
+            document.getElementById("recordBtnLabel").textContent = "Record";
+            document.getElementById("recOverlayBadge").style.display = "none";
+            document.getElementById("recTimerText").textContent = "00:00";
+        }
+
+        function saveBrowserVideo() {
+            if (recordedChunks.length === 0) return;
+            const blob = new Blob(recordedChunks, { type: "video/webm" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+            a.href = url;
+            a.download = `ur10e_handover_${currentCamera}_${ts}.webm`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            const sizeMb = (blob.size / (1024 * 1024)).toFixed(2);
+            logConsole(`[RECORDER] Video clip downloaded to browser (${sizeMb} MB)`, "log-ok");
         }
 
         // WebSocket Telemetry Connection

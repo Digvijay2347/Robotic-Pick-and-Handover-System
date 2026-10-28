@@ -112,8 +112,40 @@ def run_tests():
         assert "Bimanual UR10e Robotics Platform" in res_page.text
         assert "cameraFeed" in res_page.text
         assert "ws/telemetry" in res_page.text
+        assert "recordBtn" in res_page.text
         print(f"  --> Delivered Dashboard HTML: {len(res_page.text)} bytes")
         print("  [PASS] Static frontend dashboard delivery verified.")
+
+        # 8. Video Recording API Verification
+        print("\n[TEST 8] Testing Video Recording APIs (/api/stream/record)...")
+        res_start = client.post("/api/stream/record/start?camera_name=front_cam")
+        assert res_start.status_code == 200
+        start_data = res_start.json()
+        assert start_data["status"] == "ok"
+        print(f"  --> Record Started : {start_data['filename']}")
+
+        # Trigger 5 frame renders
+        for _ in range(5):
+            client.get("/api/stream/snapshot/front_cam")
+
+        res_status = client.get("/api/stream/record/status")
+        assert res_status.status_code == 200
+        status_data = res_status.json()
+        assert status_data["is_recording"] is True
+        print(f"  --> Record Status  : {status_data['frames']} frames recorded, {status_data['duration_sec']}s")
+
+        res_stop = client.post("/api/stream/record/stop")
+        assert res_stop.status_code == 200
+        stop_data = res_stop.json()
+        assert stop_data["status"] == "ok"
+        print(f"  --> Record Stopped : {stop_data['frames']} frames, {stop_data['size_mb']} MB -> {stop_data['filepath']}")
+        assert os.path.exists(stop_data["filepath"])
+        # Clean up test recording file
+        try:
+            os.remove(stop_data["filepath"])
+        except Exception:
+            pass
+        print("  [PASS] Video recording lifecycle verified.")
 
     print("\n" + "=" * 80)
     print("  ALL PHASE 1 BACKEND & STREAMING ENGINE TESTS PASSED SUCCESSFULLY! ")

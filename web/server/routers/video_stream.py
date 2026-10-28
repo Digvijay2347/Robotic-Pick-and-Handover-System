@@ -6,7 +6,7 @@ MuJoCo offscreen camera feeds.
 """
 
 import asyncio
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Response
 from fastapi.responses import StreamingResponse
 
@@ -98,3 +98,25 @@ async def stream_feed(
             "Expires": "0",
         },
     )
+
+
+@router.post("/record/start", summary="Start recording camera stream to MP4")
+def start_recording(camera_name: Optional[str] = Query("front_cam")) -> Dict[str, Any]:
+    """Begins capturing live frames from the specified camera to a local MP4 file."""
+    service = SimulationService.get_instance()
+    return service.start_recording(camera_name=camera_name or "front_cam")
+
+
+@router.post("/record/stop", summary="Stop active recording and finalize MP4")
+def stop_recording() -> Dict[str, Any]:
+    """Stops the active MP4 recording and returns file statistics."""
+    service = SimulationService.get_instance()
+    return service.stop_recording()
+
+
+@router.get("/record/status", summary="Get current recording status")
+def get_recording_status() -> Dict[str, Any]:
+    """Returns the current recording status, elapsed time, and frame count."""
+    service = SimulationService.get_instance()
+    return service.get_recording_status()
+
