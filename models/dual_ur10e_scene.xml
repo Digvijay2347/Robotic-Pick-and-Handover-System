@@ -5,7 +5,7 @@
 
   <visual>
     <global offwidth="1280" offheight="960"/>
-    <quality shadowsize="2048" offsamples="4"/>
+    <quality shadowsize="0" offsamples="4"/>
   </visual>
 
   <default>
