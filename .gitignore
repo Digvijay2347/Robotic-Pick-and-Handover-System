@@ -93,4 +93,7 @@ tmp/
 # Internal Development Documentation (local reference only)
 implementation_plan.md
 CAUSES_AND_SOLUTIONS.md
+fullstack_implementation_plan.md
+assets/ui_drafts/
+
 
