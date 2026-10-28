@@ -2,8 +2,8 @@
   "codebase_version": "v2.0",
   "robot_type": "dual_ur10e_robotiq_2f85",
   "fps": 25,
-  "total_episodes": 18,
-  "total_frames": 11682,
+  "total_episodes": 50,
+  "total_frames": 32450,
   "total_tasks": 1,
   "features": {
     "action": {
