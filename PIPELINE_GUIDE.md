@@ -1,5 +1,5 @@
-# Complete End-to-End Pipeline & Commands Guide
-### Phase 6 (Demonstrations) → Phase 7 (Policy Training) → Phase 8 (MuJoCo Evaluation & Visualization)
+# Complete End-to-End Robotics Pipeline & Commands Guide
+### Demonstration Collection → ACT Policy Training → MuJoCo Evaluation & Telemetry
 
 This guide provides the complete, authoritative manual for collecting expert demonstrations, training the Action Chunking with Transformers (ACT) imitation learning policy, inspecting `.pt` model checkpoints, and running interactive 3D simulations in MuJoCo.
 
@@ -9,18 +9,18 @@ This guide provides the complete, authoritative manual for collecting expert dem
 
 ```mermaid
 flowchart LR
-    P6["Phase 6: Collect Demos<br/><code>scripts/06_collect_demos.py</code>"] -->|"HDF5 Dataset<br/>(RGBs + States + Actions)"| DATA["data/handover_demos.hdf5<br/>data/meta/stats.json"]
-    DATA --> P7["Phase 7: Train Policy<br/><code>policies/train_act.py</code>"]
+    P6["1. Collect Demonstrations<br/><code>scripts/06_collect_demos_parallel.py</code>"] -->|"HDF5 Dataset<br/>(RGBs + States + Actions)"| DATA["data/handover_demos.hdf5<br/>data/meta/stats.json"]
+    DATA --> P7["2. Train Policy<br/><code>policies/train_act.py</code>"]
     P7 -->|"Model Weights<br/>(PyTorch Checkpoint)"| PT["outputs/act_handover/<br/>best_model.pt"]
-    PT --> P8["Phase 8: Evaluate & Visualize<br/><code>scripts/07_evaluate_policy.py</code>"]
+    PT --> P8["3. Evaluate & Visualize<br/><code>scripts/07_evaluate_policy.py</code>"]
     P8 --> VIEW["Interactive 3D MuJoCo Window<br/>or HD Video Recording"]
 ```
 
 ---
 
-## 1. Phase 6: Expert Demonstration Dataset Collection
+## 1. Expert Demonstration Dataset Collection
 
-Phase 6 uses the perception stack and 16-state Finite State Machine (FSM) to autonomously execute the pick, shelf extraction, mid-air handover, and bin placement sequence, recording synchronized multi-camera RGB images and 14-DOF robot actions.
+The dataset collection engine uses the perception stack and 16-state Finite State Machine (FSM) to autonomously execute the pick, shelf extraction, mid-air handover, and bin placement sequence, recording synchronized multi-camera RGB images and 14-DOF robot actions.
 
 ### 🚀 Commands to Collect Demonstrations
 
@@ -48,7 +48,7 @@ Phase 6 uses the perception stack and 16-state Finite State Machine (FSM) to aut
 
 ---
 
-### 📋 Phase 6 Parallel CLI Flags Reference (`scripts/06_collect_demos_parallel.py`)
+### 📋 Parallel Collection CLI Flags Reference (`scripts/06_collect_demos_parallel.py`)
 
 | Parameter / Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
@@ -76,9 +76,9 @@ To verify how many episodes you have, inspect data shapes, and check joint limit
 
 ---
 
-## 2. Phase 7: ACT Policy Training
+## 2. ACT Policy Training
 
-Phase 7 trains an **Action Chunking with Transformers (ACT)** policy. The model uses:
+The training module implements an **Action Chunking with Transformers (ACT)** policy. The model uses:
 - **3 ResNet-18 Backbones**: Extract visual tokens from Overhead, Wrist 1, and Wrist 2 camera images.
 - **Conditional VAE (C-VAE)**: Encodes multi-modal action distributions with latent vector $z \in \mathbb{R}^{32}$.
 - **Transformer Encoder-Decoder**: Predicts a future chunk of $K=25$ time steps ($0.50\text{ s}$) at once to ensure temporally consistent motions.
@@ -116,7 +116,7 @@ Phase 7 trains an **Action Chunking with Transformers (ACT)** policy. The model 
 
 ---
 
-### 📋 Phase 7 CLI Flags Reference (`policies/train_act.py`)
+### 📋 Policy Training CLI Flags Reference (`policies/train_act.py`)
 
 | Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
@@ -172,16 +172,16 @@ When training completes, the following files are saved in `outputs/act_handover/
 
 | Output File | Description |
 | :--- | :--- |
-| **`best_model.pt`** | The best checkpoint based on validation loss. **This is the model loaded by default in Phase 8.** |
+| **`best_model.pt`** | The best checkpoint based on validation loss. **This is the model loaded by default during evaluation.** |
 | **`checkpoint_epoch_X.pt`** | Periodic snapshot checkpoints saved every `save_every` epochs (e.g. `checkpoint_epoch_5.pt`, `checkpoint_epoch_10.pt`). |
 | **`train_history.json`** | JSON log of loss per epoch: `train_loss`, `val_loss`, `l1_loss`, and `kl_loss`. |
 | **`data/meta/stats.json`** | Normalization parameters ($\text{qpos}_{\min}, \text{qpos}_{\max}, \text{action}_{\min}, \text{action}_{\max}$). Required during evaluation to scale network predictions back to radian angles. |
 
 ---
 
-## 3. Phase 8: Policy Evaluation & 3D MuJoCo Simulation
+## 3. Policy Evaluation & 3D MuJoCo Simulation
 
-Phase 8 executes the trained `.pt` policy in closed-loop: camera frames are captured from MuJoCo, fed into the `.pt` model, and predicted joint trajectories are applied to the robots in real time.
+The evaluation runner executes the trained `.pt` policy in closed-loop: camera frames are captured from MuJoCo, fed into the `.pt` model, and predicted joint trajectories are applied to the robots in real time.
 
 ### 🚀 Commands to Run & Visualize the Trained Policy
 
@@ -227,7 +227,7 @@ Phase 8 executes the trained `.pt` policy in closed-loop: camera frames are capt
 
 ---
 
-### 📋 Phase 8 CLI Flags & Parameters Reference (`scripts/07_evaluate_policy.py`)
+### 📋 Evaluation CLI Flags & Parameters Reference (`scripts/07_evaluate_policy.py`)
 
 | Parameter / Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
@@ -262,11 +262,11 @@ When running with `--viewer`:
 
 ## 4. End-to-End Retraining Recipe (From Scratch)
 
-If you want to train a brand new, high-capacity model from scratch:
+To train a model from scratch and evaluate it:
 
 ```powershell
-# Step 1: Collect 50 randomized expert demonstrations
-.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 50 --randomize --overwrite
+# Step 1: Collect 50 randomized expert demonstrations (parallel 6 workers)
+.\.venv\Scripts\python scripts/06_collect_demos_parallel.py --num-episodes 50 --num-workers 6 --fps 25 --randomize --overwrite
 
 # Step 2: Inspect collected dataset to confirm 50 valid episodes
 .\.venv\Scripts\python -c "from dataset.dataset_utils import inspect_dataset; inspect_dataset('data/handover_demos.hdf5')"
@@ -274,7 +274,7 @@ If you want to train a brand new, high-capacity model from scratch:
 # Step 3: Train the ACT policy for 25 epochs
 .\.venv\Scripts\python policies/train_act.py --epochs 25 --batch-size 16 --lr 1e-4
 
-# Step 4: Watch the new model in 3D MuJoCo simulation
+# Step 4: Watch the trained model in 3D MuJoCo simulation
 .\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model.pt --viewer --no-ensemble --replan-freq 20
 
 # Step 5: Benchmark quantitative success rate over 10 trials

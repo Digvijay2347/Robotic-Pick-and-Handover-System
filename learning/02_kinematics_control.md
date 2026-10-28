@@ -1,17 +1,17 @@
-# Phase 2 Learning Guide: Kinematics, Cartesian Control & Single-Arm Pick Baseline
+# Kinematics, Cartesian Control & Trajectory Planning Engine
 
 ## 1. Executive Summary & Overview
 
-### What is Phase 2?
-**Phase 2** establishes the core mathematical and control engine of our robotic system. While Phase 1 modeled the physical bodies and joints in MuJoCo, robots cannot move intelligently without algorithms that translate high-level task goals (such as *"reach coordinates $(X, Y, Z)$ with orientation $R$"*) into precise joint motor commands ($\theta_1, \dots, \theta_6$).
+### Subsystem Scope
+This module establishes the core mathematical and kinematic control engine of our robotic system. While the simulation model defines the physical bodies and joints in MuJoCo, manipulators require algorithms that translate high-level task goals (such as *"reach coordinates $(X, Y, Z)$ with orientation $R$"*) into precise joint motor commands ($\theta_1, \dots, \theta_6$).
 
-Phase 2 implements:
+The kinematics and control engine provides:
 - **Forward Kinematics (FK)**: Computing 3D Cartesian end-effector poses from current joint positions.
 - **Damped Least Squares (DLS) Inverse Kinematics (IK)**: Numerically solving for target joint configurations while gracefully handling mathematical singularities.
-- **Null-Space Postural Optimization**: Using the redundant joint degrees of freedom to bias the arm away from joint limits and toward ergonomic resting postures.
+- **Null-Space Postural Optimization**: Using redundant joint degrees of freedom to bias the arm away from joint limits and toward ergonomic resting postures.
 - **Minimum-Jerk Cartesian Trajectory Planning**: Generating smooth, continuous 5th-order polynomial trajectories with SLERP quaternion interpolation.
 - **Contact & Grasp Verification**: Inspecting MuJoCo's contact manifolds to guarantee firm mechanical grip before lifting.
-- **Single-Arm Pick Baseline**: An autonomous 5-stage pick sequence proving that Arm 1 can reliably pick and lift objects.
+- **Single-Arm Pick Baseline**: An autonomous pick sequence proving that Arm 1 can reliably pick, lift, and extract objects.
 
 ```mermaid
 graph LR
@@ -36,7 +36,7 @@ graph LR
     Task Space --> Kinematic Control Engine
 ```
 
-### Why Was Phase 2 Necessary?
+### Motivation & Design Rationale
 Analytical closed-form IK for 6-DOF industrial manipulators often suffers from branch ambiguity (up to 8 discrete geometric solutions) and abrupt joint flips near singular configurations (e.g., wrist alignments or full arm extensions). By implementing a **continuous Damped Least Squares numerical solver with null-space postural stabilization**, our system achieves smooth, predictable joint trajectories across the entire $1.3\text{ m}$ reach envelope.
 
 ---
@@ -163,5 +163,5 @@ The kinematics and single-arm pick pipeline were verified by running:
 
 ---
 
-## 6. Connection to Subsequent Phases
-With verified kinematics, trajectory planning, and contact verification operational, Phase 3 builds autonomous perception to locate objects visually, eliminating the reliance on hardcoded ground-truth coordinates.
+## 6. Integration with Perception and State Machine
+With kinematics, trajectory planning, and contact verification established, the perception stack supplies dynamic 6-DOF grasp targets directly to this control engine, while the dual-arm state machine coordinates synchronized multi-robot trajectories across the shared workspace.

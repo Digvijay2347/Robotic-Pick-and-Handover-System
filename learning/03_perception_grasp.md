@@ -1,11 +1,11 @@
-# Phase 3 Learning Guide: Perception Pipeline & 6-DOF Grasp Planning
+# 3D Vision Pipeline, Point Cloud Processing & 6-DOF Grasp Synthesis
 
 ## 1. Executive Summary & Overview
 
-### What is Phase 3?
+### Subsystem Scope
 In industrial and unstructured environments, a robot does not have access to internal simulator cheat codes or hardcoded ground-truth 3D coordinates. To manipulate objects autonomously, the robot must rely on **computer vision** to observe the scene, identify items of interest, and compute viable **6-DOF SE(3) end-effector grasping poses** $(x, y, z, \text{roll}, \text{pitch}, \text{yaw})$.
 
-Phase 3 builds a complete synthetic perception and grasp synthesis pipeline:
+This module provides a complete synthetic perception and grasp synthesis pipeline:
 - **RGB-D Sensing**: Capturing color and metric depth buffers from `shelf_cam`.
 - **3D Pinhole Back-Projection**: Converting 2D pixels $(u, v, d)$ into dense 3D world-coordinate point clouds.
 - **Scene Parsing & Plane Removal**: Isolating the shelf compartment and using **iterative RANSAC** to strip walls and shelves.
@@ -158,5 +158,5 @@ The perception pipeline was verified by running:
 
 ---
 
-## 6. Connection to Subsequent Phases
-Phase 3 gives Arm 1 the ability to autonomously see and pick objects from the shelf. Phase 4 coordinates both Arm 1 and Arm 2 to execute the mid-air handover and bin deposit.
+## 6. Integration with Bimanual Manipulation Stack
+The perception pipeline supplies real-time 3D object centroids and collision-free 6-DOF grasp candidates directly to Arm 1, triggering the shelf extraction sequence before coordinating with Arm 2 for the bimanual handover.

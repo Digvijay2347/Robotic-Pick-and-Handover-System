@@ -1,4 +1,4 @@
-# Phase 5 Learning Guide: Gym-ALOHA Standard Gymnasium Environment
+# Gym-ALOHA Standard Gymnasium Environment & LeRobot Bridge
 
 ## 1. Executive Summary & Overview
 
@@ -16,38 +16,32 @@ The ALOHA architecture consists of:
 
 $$\text{Action } a_t \in [-1, 1]^{14} \xrightarrow{\text{step}(a_t)} (\text{Observation } o_{t+1}, \text{Reward } r_{t}, \text{Terminated}, \text{Truncated}, \text{Info})$$
 
-### Why Did We Need Phase 5?
-In Phases 1 through 4, we built:
-1. The **MuJoCo simulation scene** (`models/dual_ur10e_scene.xml`).
-2. The **kinematics and DLS numerical solvers** (`control/kinematics.py`).
-3. The **3D perception and grasp synthesizer** (`perception/`).
-4. The **scripted 12-state expert handover finite state machine** (`fsm/handover_fsm.py`).
-
-While the scripted FSM orchestrator achieves 100% success, it is a hardcoded procedural state machine. It cannot directly train deep neural networks (like **ACT**, **Diffusion Policy**, or **PPO**). 
+### Role in the Autonomous Learning Pipeline
+While the scripted FSM orchestrator achieves 100% success, it is a procedural state machine. It cannot directly train deep neural networks (like **ACT**, **Diffusion Policy**, or **PPO**). 
 
 Deep learning frameworks (such as [Hugging Face LeRobot](https://github.com/huggingface/lerobot), PyTorch, and Stable-Baselines3) cannot consume raw MuJoCo C-struct pointers (`mjModel*`, `mjData*`). They require a **standardized, modular, reproducible Gymnasium environment** with uniform tensors, image dictionaries, action bounds, and reward functions. 
 
-**Phase 5 bridges physics simulation with deep machine learning.**
+**This module bridges physics simulation with deep machine learning.**
 
 ```mermaid
 graph LR
-    subgraph Phase 1-4 [Physics & Control]
+    subgraph PhysicsControl [Physics & Control]
         M[MuJoCo Physics Engine<br/>500 Hz Simulation] --> C[DualArmController<br/>Kinematics & Gripper]
-        C --> FSM[Scripted Handover FSM<br/>12-Stage Procedural Expert]
+        C --> FSM[Scripted Handover FSM<br/>16-Stage Procedural Expert]
     end
 
-    subgraph Phase 5 [Gym-ALOHA Bridge]
+    subgraph GymBridge [Gym-ALOHA Bridge]
         C --> ENV[DualUR10eHandoverEnv<br/>Gymnasium Standard]
         M --> ENV
         ENV --> ACT_SP[14-DOF Action Space<br/>[-1, 1] Normalized]
         ENV --> OBS_SP[Dict Observation Space<br/>qpos, qvel, RGB Images]
     end
 
-    subgraph Phase 6-8 [Machine Learning Pipeline]
-        ENV --> REC[Phase 6: Data Recorder<br/>HDF5 / LeRobot Dataset]
+    subgraph MLPipeline [Machine Learning Pipeline]
+        ENV --> REC[Data Recorder<br/>HDF5 / LeRobot Dataset]
         FSM --> REC
-        REC --> TRAIN[Phase 7: Policy Training<br/>ACT / Diffusion Policy]
-        TRAIN --> EVAL[Phase 8: Autonomous Eval<br/>Closed-Loop Policy Rollout]
+        REC --> TRAIN[Policy Training<br/>ACT / Diffusion Policy]
+        TRAIN --> EVAL[Autonomous Evaluation<br/>Closed-Loop Policy Rollout]
         EVAL --> ENV
     end
 ```
@@ -229,15 +223,14 @@ In [envs/__init__.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/
 
 ---
 
-## 4. How Phase 5 Enables the Rest of the Roadmap
+## 4. Integration with Data Collection and Policy Evaluation
+The Gymnasium environment provides the unified API across data collection, policy training, and policy evaluation:
 
-With Phase 5 completed, our pipeline directly connects to subsequent deep learning milestones:
-
-| Phase | Milestone | Role of Phase 5 Gymnasium Environment |
-| :--- | :--- | :--- |
-| **Phase 6** | **Expert Dataset Collection** | The demonstration recorder will wrap `DualUR10eHandover-v0`. The scripted FSM from Phase 4 will drive the environment via `step(action)` to record 50–100 successful episodes with full image streams and 14-DOF actions directly into **HDF5 / LeRobot** format. |
-| **Phase 7** | **Imitation Learning (ACT / Diffusion)** | The trained neural network policy (PyTorch / LeRobot) takes `obs` dictionary from `env.reset()` and outputs 14-DOF action chunks executed via `env.step()`. |
-| **Phase 8** | **Autonomous Evaluation** | We will evaluate the trained policy across randomized seeds in `DualUR10eHandover-v0` to measure autonomous pick-and-handover success rates without human supervision. |
+| Subsystem / Workflow | Role of the Gymnasium Environment |
+| :--- | :--- |
+| **Expert Demonstration Collection** | The demonstration recorder wraps `DualUR10eHandover-v0`. The scripted FSM drives the environment via `step(action)` to record demonstration episodes with full multi-camera streams and 14-DOF actions directly into **HDF5 / LeRobot** format. |
+| **Visuomotor Policy Training (ACT / Diffusion)** | The neural network policy takes the `obs` dictionary from `env.reset()` and outputs 14-DOF action chunks executed via `env.step()`. |
+| **Autonomous Closed-Loop Evaluation** | The trained policy is evaluated across randomized seeds in `DualUR10eHandover-v0` to benchmark autonomous pick-and-handover success rates, reach errors, and cycle times without human intervention. |
 
 ---
 

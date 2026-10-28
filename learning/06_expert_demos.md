@@ -1,11 +1,11 @@
-# Phase 6 Learning Guide: Expert Demonstration Dataset Collection (ALOHA & LeRobot)
+# Expert Demonstration Dataset Collection Engine (ALOHA & LeRobot)
 
 ## 1. Executive Summary & Overview
 
-### What is Phase 6?
+### Subsystem Scope
 Deep visuomotor policies—such as **Action Chunking with Transformers (ACT)** and **Diffusion Policy**—cannot be trained from scratch using classical reinforcement learning (RL) on complex 14-DOF bimanual tasks. Exploring a 16-stage continuous pick-and-handover sequence via random exploration has an astronomical sample complexity ($\sim 10^8$ steps).
 
-**Phase 6** establishes the automated **Expert Demonstration Dataset Collection Engine**. It pairs our validated procedural expert ([HandoverFSM](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py)) with our standardized Gymnasium environment ([DualUR10eHandoverEnv](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/dual_ur10e_env.py)) to record high-quality, multi-camera, 14-DOF bimanual demonstration episodes formatted strictly according to the **Stanford ALOHA HDF5** and **Hugging Face LeRobot** standards.
+This module establishes the automated **Expert Demonstration Dataset Collection Engine**. It pairs our validated procedural expert ([HandoverFSM](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py)) with our standardized Gymnasium environment ([DualUR10eHandoverEnv](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/dual_ur10e_env.py)) to record high-quality, multi-camera, 14-DOF bimanual demonstration episodes formatted strictly according to the **Stanford ALOHA HDF5** and **Hugging Face LeRobot** standards.
 
 ```mermaid
 graph TD
@@ -32,15 +32,14 @@ graph TD
     subgraph Validation & Downstream
         H5 --> INSP[dataset_utils.py --inspect<br/>Zero NaN, Zero Inf, Bounded]
         H5 --> VID[dataset_utils.py --video<br/>Composite MP4 Preview]
-        H5 --> P7[Phase 7: ACT / LeRobot Training]
+        H5 --> P7[ACT / LeRobot Policy Training]
     end
 ```
 
-### Why Was Phase 6 Necessary?
-Without this phase:
-1. **No Data for Machine Learning**: Imitation learning models cannot train without demonstration trajectories $(o_t, a_t)$.
-2. **Teleoperation Bottleneck Eliminated**: Human teleoperation of bimanual systems requires custom hardware rigs costing \$20,000+ and hundreds of hours of manual logging. Our scripted expert generates unlimited, pristine, multi-camera demonstrations automatically overnight.
-3. **Format Standardization**: Deep learning repos (ACT, Diffusion Policy, Hugging Face LeRobot) require exact tensor hierarchies, normalization statistics (`stats.json`), and metadata schemas (`info.json`). Phase 6 automates this conversion.
+### Motivation & Design Rationale
+1. **High-Quality Data for Imitation Learning**: Visuomotor policies cannot train without demonstration trajectories $(o_t, a_t)$ capturing the entire distribution of expert states.
+2. **Teleoperation Bottleneck Eliminated**: Human teleoperation of bimanual systems requires custom hardware rigs costing \$20,000+ and hundreds of hours of manual logging. Our scripted expert generates unlimited, pristine, multi-camera demonstrations automatically.
+3. **Format Standardization**: Deep learning frameworks (ACT, Diffusion Policy, Hugging Face LeRobot) require exact tensor hierarchies, normalization statistics (`stats.json`), and metadata schemas (`info.json`). This engine automates full metadata export.
 
 ---
 
@@ -164,7 +163,8 @@ In [dataset/recorder.py#L115-L130](file:///c:/Users/Digvijay%20singh/OneDrive/De
 - [dataset/recorder.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py): The [EpisodeRecorder](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py#L16-L330) class managing episode buffering, HDF5 persistence, and LeRobot metadata export.
 - [dataset/dataset_utils.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py): The [inspect_dataset](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py#L22-L161) and [render_composite_video](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py#L164-L215) tools.
 - [dataset/__init__.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/__init__.py): Package exports for dataset utilities.
-- [scripts/06_collect_demos.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos.py): Batch CLI collection runner.
+- [scripts/06_collect_demos_parallel.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos_parallel.py): High-performance multi-process parallel collection runner.
+- [scripts/06_collect_demos.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos.py): Single-worker sequential collection runner.
 
 ---
 
@@ -172,9 +172,9 @@ In [dataset/recorder.py#L115-L130](file:///c:/Users/Digvijay%20singh/OneDrive/De
 
 ### Acceptance Commands:
 
-1. **Collect Demonstrations**:
+1. **Collect Demonstrations (Parallel 6 Workers)**:
    ```powershell
-   .\.venv\Scripts\python.exe scripts/06_collect_demos.py --num-episodes 10 --save-images --randomize
+   .\.venv\Scripts\python.exe scripts/06_collect_demos_parallel.py --num-episodes 50 --num-workers 6 --fps 25 --randomize
    ```
 
 2. **Inspect Dataset Integrity**:
@@ -184,17 +184,17 @@ In [dataset/recorder.py#L115-L130](file:///c:/Users/Digvijay%20singh/OneDrive/De
 
 3. **Render Synchronized Composite Video**:
    ```powershell
-   .\.venv\Scripts\python.exe dataset/dataset_utils.py --video --dataset data/handover_demos.hdf5 --episode demo_0 --out-video recordings/phase6_demo_preview.mp4
+   .\.venv\Scripts\python.exe dataset/dataset_utils.py --video --dataset data/handover_demos.hdf5 --episode demo_49 --out-video recordings/phase6_demo_049.mp4
    ```
 
 ### Measured Acceptance Metrics:
 - **Total Valid Episodes**: 100% compliant with ALOHA HDF5 specification.
 - **Action Bounds**: All 14 action dimensions strictly bounded in $[-1.0, 1.0]$ with zero NaN / Inf values.
-- **Image Streams**: 3 synchronized camera angles (`top`: $480\times640$, `wrist1`: $240\times320$, `wrist2`: $240\times320$) at 50 FPS.
+- **Image Streams**: 3 synchronized camera angles (`top`, `wrist1`, `wrist2`).
 - **Dual Custody Overlap**: 100% of recorded episodes feature verified simultaneous custody holding ($F_n \ge 190\text{ N}$).
-- **Video Preview**: Clean composite MP4 video rendered to `recordings/phase6_demo_preview.mp4`.
+- **Video Preview**: Clean composite MP4 video rendered to `recordings/phase6_demo_049.mp4`.
 
 ---
 
-## 6. Connection to Phase 7 (Policy Training)
-The dataset recorded in Phase 6 directly feeds into **Phase 7: Action Chunking with Transformers (ACT)**. The training loader reads `handover_demos.hdf5`, samples multi-camera frames and proprioceptive state vectors, and trains the transformer decoder to predict 14-DOF action chunks $K = 25$ steps into the future.
+## 6. Integration with Visuomotor Policy Training
+The dataset recorded by this engine directly feeds into the **Action Chunking with Transformers (ACT)** training pipeline. The training loader reads `handover_demos.hdf5`, samples multi-camera frames and proprioceptive state vectors, and trains the transformer decoder to predict 14-DOF action chunks $K = 25$ steps into the future.

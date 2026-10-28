@@ -69,8 +69,19 @@ graph TB
 
 ```
 .
-├── dual_arm_architecture.md   # Detailed system architectural specification
-├── implementation_plan.md     # Phased step-by-step engineering roadmap
+├── README.md                  # System overview and entry point
+├── SETUP_GUIDE.md             # Environment setup & interactive 3D viewer guide
+├── PIPELINE_GUIDE.md          # End-to-end command reference (Data, Training, Eval)
+├── dual_arm_architecture.md   # Mathematical & kinematic architectural specification
+├── learning/                  # In-depth subsystem documentation guides
+│   ├── overview.md            # System architectural whitepaper
+│   ├── 01_simulation_scene.md # Physics world, MJCF scene & sensors
+│   ├── 02_kinematics_control.md# DLS IK, null-space optimization & Cartesian control
+│   ├── 03_perception_grasp.md # Synthetic depth, point clouds & 6-DOF grasp planning
+│   ├── 04_scripted_handover.md# 16-stage bimanual handover FSM & dual custody
+│   ├── 05_gym_aloha.md        # Gym-ALOHA 14-DOF Gymnasium environment
+│   ├── 06_expert_demos.md     # Multi-worker parallel demonstration recorder
+│   └── 07_act_policy.md       # ACT policy architecture & C-VAE training
 ├── assets/                    # Robot models, meshes, and environment textures
 ├── models/                    # MJCF XML scene definitions (dual UR10e, shelf, bin)
 ├── control/                   # Kinematics, DLS IK solver, and Cartesian controllers
@@ -79,28 +90,28 @@ graph TB
 ├── envs/                      # Gymnasium ALOHA environment wrapper
 ├── dataset/                   # Demonstration recording and dataset utilities
 ├── policies/                  # ACT configuration and training scripts
-├── scripts/                   # Verification, testing, and benchmark utilities
-└── README.md
+└── scripts/                   # Verification, collection, training, and evaluation utilities
 ```
 
 ---
 
-## 📋 Implementation Roadmap
+## 📚 System Modules & Technical Documentation
 
-| Phase | Milestone | Status |
-|:---:|---|:---:|
-| **0** | **Environment & Tooling Setup** | 🟢 Complete |
-| **1** | **MJCF Scene & Asset Assembly** | 🟢 Complete |
-| **2** | **Kinematics & Single-Arm Pick Baseline** | 🟢 Complete |
-| **3** | **Perception & 6-DOF Grasp Planning** | 🟢 Complete |
-| **4** | **Coordinated Dual-Arm Handover FSM** | 🟢 Complete |
-| **5** | **Gym-ALOHA Environment Wrapper** | 🟢 Complete |
-| **6** | **Expert Demonstration Dataset Collection** | 🟢 Complete |
-| **7** | **Policy Training (ACT / LeRobot)** | 🟢 Complete |
-| **8** | **Benchmarking, Telemetry & Polish** | 🟢 Complete |
+The system is organized into modular engineering subsystems, each documented with architecture breakdowns, mathematical formulations, and verification benchmarks:
 
-> 📖 **Comprehensive Pipeline Manual**: See [`PIPELINE_GUIDE.md`](PIPELINE_GUIDE.md) for full parameter references, flags, and recipes for Phases 6, 7, and 8.  
-> 📖 Full architecture and step-by-step logs: [`implementation_plan.md`](implementation_plan.md) and [`SETUP_GUIDE.md`](SETUP_GUIDE.md).
+| Module | Subsystem Guide | Core Capabilities | Status |
+|:---:|---|---|:---:|
+| **1** | [**Simulation Scene & Assets**](learning/01_simulation_scene.md) | Dual UR10e manipulators, Robotiq 2F-85 4-bar linkage dynamics, 4×3 wall shelf, multi-camera sensor suite | 🟢 Verified |
+| **2** | [**Kinematics & Control**](learning/02_kinematics_control.md) | Damped Least Squares (DLS) numerical IK, null-space postural biasing, 5th-order minimum-jerk trajectory generator | 🟢 Verified |
+| **3** | [**Perception & 6-DOF Grasping**](learning/03_perception_grasp.md) | Metric depth back-projection, RANSAC plane removal, DBSCAN clustering, antipodal grasp synthesis | 🟢 Verified |
+| **4** | [**Coordinated Handover FSM**](learning/04_scripted_handover.md) | 16-state deterministic coordinator, closed-loop dual-custody force interlock, collision-free corridors | 🟢 Verified |
+| **5** | [**Gym-ALOHA Environment**](learning/05_gym_aloha.md) | Gymnasium environment standard, 14-DOF normalized action space, multi-camera image observation dictionary | 🟢 Verified |
+| **6** | [**Demonstration Engine**](learning/06_expert_demos.md) | 6-worker parallel recorder, Stanford ALOHA HDF5 schema, LeRobot metadata export, domain randomization | 🟢 Verified |
+| **7** | [**Visuomotor Policy (ACT)**](learning/07_act_policy.md) | Action Chunking with Transformers (K=25), multi-view ResNet-18 backbones, C-VAE latent style generator | 🟢 Verified |
+
+> 📖 **Comprehensive Pipeline Manual**: See [`PIPELINE_GUIDE.md`](PIPELINE_GUIDE.md) for full parameter references, flags, and recipes.  
+> 📖 **Interactive 3D Viewer Guide**: See [`SETUP_GUIDE.md`](SETUP_GUIDE.md) for camera navigation, physics shortcuts, and environment setup.  
+> 📖 **Architectural Blueprint**: See [`dual_arm_architecture.md`](dual_arm_architecture.md) for complete mathematical derivations and control loops.
 
 ---
 
@@ -129,22 +140,22 @@ pip install -r requirements.txt
 
 ### Quick Commands
 
-#### 1. Watch Trained ACT Policy in 3D MuJoCo Simulation (Phase 8):
+#### 1. Watch Trained ACT Policy in Interactive 3D MuJoCo Simulation:
 ```powershell
 .\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --no-ensemble --replan-freq 20
 ```
 
-#### 2. Record Multi-Camera HD Video of Trained Policy:
+#### 2. Record Multi-Camera HD Video of Autonomous Execution:
 ```powershell
 .\.venv\Scripts\python scripts/07_evaluate_policy.py --record --no-ensemble --replan-freq 20 --num-episodes 1
 ```
 
-#### 3. Collect Expert Demonstrations (Phase 6):
+#### 3. Collect Expert Demonstrations (Parallel 6 Workers):
 ```powershell
-.\.venv\Scripts\python scripts/06_collect_demos.py --num-episodes 50 --randomize
+.\.venv\Scripts\python scripts/06_collect_demos_parallel.py --num-episodes 50 --num-workers 6 --fps 25 --randomize
 ```
 
-#### 4. Train the ACT Policy (Phase 7):
+#### 4. Train the ACT Policy:
 ```powershell
 .\.venv\Scripts\python policies/train_act.py --epochs 25 --batch-size 16
 ```

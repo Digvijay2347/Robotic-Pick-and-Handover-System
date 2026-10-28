@@ -1,15 +1,15 @@
-# Phase 4 Learning Guide: Coordinated Dual-Arm Handover State Machine (Scripted Expert)
+# Coordinated Dual-Arm Handover State Machine (Scripted Expert)
 
 ## 1. Executive Summary & Overview
 
-### What is Phase 4?
+### Subsystem Scope
 A single robotic manipulator has a bounded kinematic reach. In our workspace:
 - **Arm 1 (Giver)** can reach the wall shelf, but cannot reach the storage bin.
 - **Arm 2 (Receiver)** can reach the storage bin, but cannot reach into the shelf.
 
 To transport objects from the shelf to the bin, both arms must execute a synchronized **mid-air physical handover**. 
 
-**Phase 4** builds the **16-stage Coordinated Dual-Arm Handover Finite State Machine (FSM)**. This scripted expert system handles the end-to-end mission: perception scanning, shelf retrieval, collision-free transit, dual-gripper custody transfer, transport across the workspace, and placement into the storage bin.
+This module implements the **16-stage Coordinated Dual-Arm Handover Finite State Machine (FSM)**. This scripted expert system handles the end-to-end mission: perception scanning, shelf retrieval, collision-free transit, dual-gripper custody transfer, transport across the workspace, and placement into the storage bin.
 
 ```mermaid
 stateDiagram-v2
@@ -37,10 +37,10 @@ stateDiagram-v2
     ERROR_RECOVERY --> RETURN_HOME: Safe Posture Recovery
 ```
 
-### Why Was Phase 4 Necessary?
+### Motivation & Design Rationale
 The scripted FSM serves two vital functions:
 1. **Deterministic Baseline**: It proves that the physical mechanics, joint controllers, kinematics, and spatial envelopes are 100% sound and capable of reliable bimanual cooperation.
-2. **The "Expert Teacher" for Machine Learning**: Deep imitation learning (e.g., ACT, Diffusion Policy) requires hundreds of demonstration trajectories showing *how* to perform the task. Phase 4 is the automated teacher that generates these demonstrations in Phase 6.
+2. **The "Expert Teacher" for Machine Learning**: Deep imitation learning (e.g., ACT, Diffusion Policy) requires demonstration trajectories showing *how* to perform the task. This state machine acts as the automated expert engine that generates these training datasets.
 
 ---
 
@@ -139,7 +139,6 @@ During real-time interactive testing with `--viewer`, four operational faults we
 - [fsm/handover_states.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_states.py): State enumerations ([HandoverState](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_states.py#L12-L35)), telemetry logs, and cycle metrics.
 - [control/collision_checker.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/collision_checker.py): Inter-arm collision monitoring during simultaneous dual-arm motion.
 - [scripts/04_run_scripted_handover.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/04_run_scripted_handover.py): Execution script with `--viewer`, multi-cycle benchmarking, and telemetry.
-- [CAUSES_AND_SOLUTIONS.md](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/CAUSES_AND_SOLUTIONS.md): Detailed diagnostic audit of all 4 operational faults.
 
 ---
 
@@ -159,5 +158,5 @@ The FSM was verified over 10 consecutive autonomous pick-and-handover cycles:
 
 ---
 
-## 6. Connection to Subsequent Phases
-With the Phase 4 scripted expert achieving 100% success, Phase 5 wrapped this capability into a standard Gym-ALOHA environment, and Phase 6 uses this FSM as the automated expert policy to collect demonstration datasets for ACT imitation learning.
+## 6. Integration with Learning Pipeline
+With the scripted expert achieving 100% deterministic success, this state machine is wrapped into the standardized Gym-ALOHA environment to serve as the algorithmic teacher for collecting multi-camera expert demonstration datasets.

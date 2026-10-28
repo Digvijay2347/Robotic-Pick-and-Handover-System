@@ -1,11 +1,11 @@
-# Phase 7 Learning Guide: Policy Training Pipeline (Action Chunking with Transformers - ACT)
+# Policy Training Pipeline (Action Chunking with Transformers - ACT)
 
 ## 1. Executive Summary & Overview
 
-### What is Phase 7?
-In **Phase 6**, we recorded and verified high-fidelity multimodal demonstration datasets containing synchronized 50 Hz RGB camera streams (`top`, `wrist1`, `wrist2`), 14-DOF joint proprioception (`qpos`), and normalized 14-DOF action vectors.
+### Subsystem Scope
+Using multimodal demonstration datasets containing synchronized RGB camera streams (`top`, `wrist1`, `wrist2`), 14-DOF joint proprioception (`qpos`), and normalized 14-DOF action vectors, this module implements the deep visuomotor policy training pipeline.
 
-**Phase 7** transitions our robotic system from scripted state machine control to **Autonomous Visuomotor Imitation Learning**. We implement, train, and validate the **Action Chunking with Transformers (ACT)** policy (Tony Zhao et al., Stanford/Google, 2023), mapping multi-view camera feeds and robot proprioception directly to coordinated 14-DOF action trajectories without manual state switching or classical inverse kinematics.
+This architecture transitions our robotic system from scripted state machine control to **Autonomous Visuomotor Imitation Learning**. We implement, train, and validate the **Action Chunking with Transformers (ACT)** policy (Tony Zhao et al., Stanford/Google, 2023), mapping multi-view camera feeds and robot proprioception directly to coordinated 14-DOF action trajectories without manual state switching or classical inverse kinematics.
 
 ```mermaid
 graph TD
@@ -38,7 +38,7 @@ graph TD
 
 ---
 
-### Why Was Phase 7 Necessary?
+### Motivation & Design Rationale
 1. **Elimination of Compounding Error Drift**: Standard single-step Behavior Cloning predicts one action at a time ($a_t = \pi(o_t)$). A minor deviation at step $t$ displaces the robot into an out-of-distribution state, accumulating errors that cause the robot to drop the object or freeze. ACT predicts **chunks of $K=25$ future actions simultaneously** ($0.50\text{ s}$ horizon), ensuring smooth, continuous trajectories.
 2. **Handling Multimodal Trajectories via C-VAE**: When human or algorithmic experts demonstrate tasks, multiple valid paths exist. Deterministic policies trained with MSE/L1 loss average these modes together, producing jerky or invalid compromise trajectories. ACT uses a **Conditional Variational Autoencoder (C-VAE)** to capture the latent execution style $z$, resolving mode collapse.
 3. **End-to-End Visuomotor Autonomy**: Instead of relying on hand-crafted heuristic state transitions, point cloud clustering, and separate IK solvers, the neural policy directly maps visual pixels and joint encoders to motor actuation.
@@ -186,10 +186,10 @@ All trained checkpoints and telemetry were verified:
 
 ---
 
-## 6. Bridge to Phase 8: Closed-Loop Policy Evaluation
+## 6. Closed-Loop Policy Evaluation & Deployment
 
-With the ACT policy successfully trained and verified, we are ready for **Phase 8: Closed-Loop Policy Evaluation, Telemetry & Documentation**:
+With the ACT policy trained and checkpointed, the policy is evaluated in the MuJoCo simulation environment in closed loop:
 - Deploy the trained `ACTPolicy` into the MuJoCo simulation environment in closed loop.
 - Implement **Temporal Ensembling**: Smooth overlapping action chunks using exponential weighting across rolling windows.
-- Benchmark success rate across 50 randomized initial object placements.
+- Benchmark success rate across randomized initial object placements.
 - Render multi-view composite videos showing side-by-side camera views and 3D simulation trajectories.

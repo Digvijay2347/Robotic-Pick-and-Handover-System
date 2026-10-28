@@ -1,7 +1,7 @@
 # Dual-Arm Robotic Pick-and-Handover System
 ## Simulation Setup & Interactive User Guide
 
-> **Current Status**: Phase 0 (Environment), Phase 1 (Scene & Assets), Phase 2 (Kinematics & Single-Arm Pick), and Phase 3 (Perception & 6-DOF Grasp Planning) Complete 🟢  
+> **System Status**: Fully Implemented, Verified & Benchmarked 🟢  
 > **Target Environment**: Windows 11 · Python 3.11 · MuJoCo 3.16.0 · Intel Arc 140V (8GB)  
 > **Repository**: [`Digvijay2347/Robotic-Pick-and-Handover-System`](https://github.com/Digvijay2347/Robotic-Pick-and-Handover-System)
 
@@ -203,9 +203,9 @@ The physics timestep is set to $0.002\text{ s}$ ($500\text{ Hz}$). On this syste
 
 ---
 
-## 6. Phase 2 Architecture & Autonomous Pick Pipeline
+## 6. Kinematics Architecture & Autonomous Pick Pipeline
 
-In Phase 2, we implemented the complete autonomous kinematic and Cartesian control stack:
+The kinematics and Cartesian control stack provides:
 - **[`control/kinematics.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py)**: Damped Least Squares (DLS) Jacobian IK solver, closed-loop numeric iteration, automatic 2π branch unwrapping, null-space postural biasing, and physical joint limit clamping.
 - **[`control/trajectory.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py)**: 5th-order minimum-jerk quintic polynomial interpolator (`s(tau) = 10 tau^3 - 15 tau^4 + 6 tau^5`) and SLERP orientation interpolator.
 - **[`control/dual_arm_controller.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py)**: Unified 14-DOF actuator coordinator, normalized gripper command interface `[0.0, 1.0]`, and MuJoCo contact dynamics normal force verifier (`check_grasp`).
@@ -222,9 +222,9 @@ In Phase 2, we implemented the complete autonomous kinematic and Cartesian contr
 
 ---
 
-## 7. Phase 3: Perception & 6-DOF Grasp Planning
+## 7. Vision Perception & 6-DOF Grasp Planning Stack
 
-In Phase 3, we implemented an autonomous synthetic perception and 6-DOF grasp planning pipeline driven purely from `shelf_cam` RGB-D sensory input:
+The autonomous synthetic perception and 6-DOF grasp planning pipeline operates purely from `shelf_cam` RGB-D sensory input:
 - **[`perception/pointcloud.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/pointcloud.py)**: Camera intrinsic derivation, synchronized linear metric depth rendering, pinhole back-projection to 3D World coordinates ($P_w = R_{\text{cam}} P_c + T_{\text{cam}}$), and Open3D integration.
 - **[`perception/segmentation.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py)**: 3D shelf ROI cropping, iterative RANSAC plane stripping for shelf boards and dividers, DBSCAN Euclidean clustering, and color signature matching (`find_target`).
 - **[`perception/grasp_planners/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planners/)**:
@@ -250,7 +250,7 @@ In Phase 3, we implemented an autonomous synthetic perception and 6-DOF grasp pl
 .\.venv\Scripts\python scripts/03_test_perception.py --use-graspgen
 ```
 
-### Verified Phase 3 Telemetry:
+### Verified Perception & Grasp Telemetry:
 | Metric | Acceptance Gate | Observed Value | Status |
 |---|:---:|:---:|:---:|
 | **3D Object Localization Error** | $< 15.0\text{ mm}$ | **$6.45\text{ mm}$** | PASSED 🟢 |
@@ -260,29 +260,23 @@ In Phase 3, we implemented an autonomous synthetic perception and 6-DOF grasp pl
 | **Vertical Lift Clearance** | $\ge 8.0\text{ cm}$ | **$+13.1\text{ cm}$** | PASSED 🟢 |
 | **Link-to-Shelf Collisions** | $0$ | **$0\text{ (CLEAN)}$** | PASSED 🟢 |
 
-### Perception Artifacts Generated in [`recordings/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/):
-- `phase3_initial_shelf_view.png`: Offscreen RGB snapshot from `shelf_cam`.
-- `phase3_target_cluster.ply`: Segmented 3D point cloud of the target red box.
-- `phase3_stage_1_PREGRASP.png` to `phase3_stage_6_HOLD.png`: Pick execution milestones.
-- `phase3_final_overhead.png`: Overhead view of Arm 1 holding the retracted object in free space.
-
 ---
 
-## 8. Phases 4–8: Dual-Arm Handover, Imitation Learning, & Policy Deployment
+## 8. Dual-Arm Handover, Imitation Learning & Policy Deployment Modules
 
-All system phases have been fully engineered, validated, and benchmarked:
-- **Phase 4: Coordinated Dual-Arm Mid-Air Handover FSM** ([`fsm/handover_fsm.py`](control/kinematics.py)):
+The integrated system components provide:
+- **Coordinated Dual-Arm Mid-Air Handover FSM** ([`fsm/handover_fsm.py`](fsm/handover_fsm.py)):
   - 16-state deterministic coordinator with dual-custody verification ($F_1 > 0, F_2 > 0$ before Arm 1 release).
   - Zero inter-arm collision trajectory with $+20\text{ mm}$ shelf corridor clearance.
-- **Phase 5: Gym-ALOHA Environment Standard** ([`envs/dual_ur10e_env.py`](envs/dual_ur10e_env.py)):
+- **Gym-ALOHA Environment Standard** ([`envs/dual_ur10e_env.py`](envs/dual_ur10e_env.py)):
   - 14-DOF action interface adhering to the ALOHA / LeRobot standard (6 Arm1 joints + 1 Grip1 + 6 Arm2 joints + 1 Grip2).
   - Synchronized multi-camera observations (`top`, `wrist1`, `wrist2`) at 50 Hz.
-- **Phase 6: Expert Demonstration Collection** ([`scripts/06_collect_demos.py`](scripts/06_collect_demos.py)):
-  - Automated recording to consolidated HDF5 dataset ([`data/handover_demos.hdf5`](data/handover_demos.hdf5)) and LeRobot dataset format.
-- **Phase 7: Policy Training with ACT** ([`policies/train_act.py`](policies/train_act.py)):
+- **Expert Demonstration Collection Engine** ([`scripts/06_collect_demos_parallel.py`](scripts/06_collect_demos_parallel.py)):
+  - Automated parallel recording to consolidated HDF5 dataset ([`data/handover_demos.hdf5`](data/handover_demos.hdf5)) and LeRobot dataset format.
+- **Policy Training with ACT** ([`policies/train_act.py`](policies/train_act.py)):
   - Action Chunking with Transformers (K=25 chunk horizon, 3 ResNet-18 visual backbones, C-VAE latent encoder).
   - Best model checkpoint saved to [`outputs/act_handover/best_model.pt`](outputs/act_handover/best_model.pt).
-- **Phase 8: Closed-Loop Benchmark & MuJoCo 3D Visualization** ([`scripts/07_evaluate_policy.py`](scripts/07_evaluate_policy.py)):
+- **Closed-Loop Benchmark & MuJoCo 3D Visualization** ([`scripts/07_evaluate_policy.py`](scripts/07_evaluate_policy.py)):
   - 100% pick, handover, and bin placement success rate in closed-loop evaluation.
   - Multi-camera composite rollout video recorded in [`recordings/phase8_act_eval_rollout.mp4`](recordings/phase8_act_eval_rollout.mp4).
 
@@ -293,6 +287,6 @@ All system phases have been fully engineered, validated, and benchmarked:
 For the complete command reference, CLI flags table, training recipes, and interactive 3D MuJoCo viewer instructions, consult:
 
 👉 **[`PIPELINE_GUIDE.md`](PIPELINE_GUIDE.md)**:
-- **Phase 6**: Flags and recipes to collect larger, higher-diversity demonstration datasets.
-- **Phase 7**: Training parameters, learning rates, epochs, and `.pt` checkpoint outputs.
-- **Phase 8**: Commands to launch interactive 3D MuJoCo simulation, benchmark scorecards, and HD video rendering.
+- **Demonstration Collection**: Flags and recipes to collect multi-camera demonstration datasets in parallel.
+- **Policy Training**: Training parameters, learning rates, epochs, and `.pt` checkpoint outputs.
+- **Evaluation & Visualization**: Commands to launch interactive 3D MuJoCo simulation, benchmark scorecards, and HD video rendering.

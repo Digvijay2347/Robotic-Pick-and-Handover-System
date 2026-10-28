@@ -1,11 +1,11 @@
-# Phase 1 Learning Guide: High-Fidelity MuJoCo Scene & Asset Assembly
+# High-Fidelity MuJoCo Scene & Asset Architecture
 
 ## 1. Executive Summary & Overview
 
-### What is Phase 1?
-**Phase 1** establishes the foundational physical simulation world in [MuJoCo](https://mujoco.org/) (Multi-Joint dynamics with Contact) using the **MJCF (MuJoCo XML)** schema. It defines the geometry, kinematic topologies, inertia tensors, surface friction, contact dynamics, actuators, and visual sensors for our bimanual manipulation workspace.
+### Subsystem Scope
+This module establishes the foundational physical simulation world in [MuJoCo](https://mujoco.org/) (Multi-Joint dynamics with Contact) using the **MJCF (MuJoCo XML)** schema. It defines the geometry, kinematic topologies, inertia tensors, surface friction, contact dynamics, actuators, and visual sensors for our bimanual manipulation workspace.
 
-The Phase 1 scene brings together:
+The simulation scene brings together:
 - **Two Universal Robots UR10e** industrial manipulator arms (6-DOF each).
 - **Two Robotiq 2F-85** parallel-jaw adaptive grippers with underactuated four-bar linkage mimic mechanics.
 - **Rigid Cylindrical Pedestals** positioning both robots for optimal kinematic dexterity and collision-free overlap.
@@ -34,7 +34,7 @@ graph TD
     end
 ```
 
-### Why Was Phase 1 Necessary?
+### Motivation & Design Rationale
 In modern robotic learning, physical simulation serves as the testbed where control, perception, and neural policies are developed without risking multimillion-dollar industrial hardware or human safety. If simulation physics (contacts, friction, masses, actuator bandwidth) are improperly tuned, policies will fail to transfer or suffer from "reality gap" artifacts such as exploding contact forces, inter-penetrations, or numerical singularities.
 
 ---
@@ -158,5 +158,5 @@ The scene was verified by running:
 
 ---
 
-## 6. Connection to Subsequent Phases
-Phase 1 provides the physical sandbox for the entire project. Phase 2 directly builds upon this by creating numerical kinematic solvers and low-level Cartesian trajectory controllers for these modeled arms.
+## 6. Integration with Control & Learning Stack
+The simulation model provides the physical foundation for the entire system. Downstream modules interface directly with these bodies, sensors, and actuators via the DLS kinematic control engine, 3D perception pipeline, and Gym-ALOHA standard environment wrapper.
