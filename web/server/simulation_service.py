@@ -84,9 +84,9 @@ class SimulationService:
                 self.camera_ids[cam] = cid
         print(f"[SimulationService] Active offscreen cameras: {list(self.camera_ids.keys())}")
 
-        # Offscreen renderer
-        self.render_width = 640
-        self.render_height = 480
+        # Offscreen renderer (HD 960x720 with anti-aliasing)
+        self.render_width = 960
+        self.render_height = 720
         self.renderer = mujoco.Renderer(self.model, height=self.render_height, width=self.render_width)
         try:
             import glfw
@@ -154,7 +154,7 @@ class SimulationService:
         """Returns list of registered camera names."""
         return list(self.camera_ids.keys())
 
-    def get_jpeg_frame(self, camera_name: str, quality: int = 75) -> bytes:
+    def get_jpeg_frame(self, camera_name: str, quality: int = 85) -> bytes:
         """
         Renders or retrieves cached JPEG frame for specified camera.
         Uses TTL cache so multiple concurrent connections share rendered frames.

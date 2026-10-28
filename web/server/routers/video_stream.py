@@ -45,7 +45,7 @@ async def get_snapshot(camera_name: str, quality: int = Query(85, ge=20, le=100)
     return Response(content=frame_bytes, media_type="image/jpeg")
 
 
-async def mjpeg_frame_generator(camera_name: str, fps: int = 20, quality: int = 75):
+async def mjpeg_frame_generator(camera_name: str, fps: int = 20, quality: int = 85):
     """Asynchronous generator yielding multipart/x-mixed-replace JPEG frames."""
     service = SimulationService.get_instance()
     interval = 1.0 / max(1, min(fps, 30))
@@ -76,7 +76,7 @@ async def mjpeg_frame_generator(camera_name: str, fps: int = 20, quality: int = 
 async def stream_feed(
     camera_name: str,
     fps: int = Query(20, ge=1, le=30),
-    quality: int = Query(75, ge=20, le=95),
+    quality: int = Query(85, ge=20, le=95),
 ):
     """
     Streams a live multipart/x-mixed-replace MJPEG video stream from the specified camera.

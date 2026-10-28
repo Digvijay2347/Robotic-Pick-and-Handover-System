@@ -3,6 +3,11 @@
 
   <option timestep="0.002" gravity="0 0 -9.81" integrator="implicitfast" cone="elliptic" impratio="10"/>
 
+  <visual>
+    <global offwidth="1280" offheight="960"/>
+    <quality shadowsize="2048" offsamples="4"/>
+  </visual>
+
   <default>
     <!-- UR10e Default Classes -->
     <default class="ur10e">
