@@ -137,8 +137,12 @@ class SimulationService:
             mujoco.mj_forward(self.model, self.data)
             for _ in range(100):
                 mujoco.mj_step(self.model, self.data)
-            self.fsm.q_home1 = self.fsm.kin1.get_joint_positions()
-            self.fsm.q_home2 = self.fsm.kin2.get_joint_positions()
+            self.fsm.q_home1 = self.fsm.kin1.get_joint_positions().copy()
+            self.fsm.q_home2 = self.fsm.kin2.get_joint_positions().copy()
+            self._target_q1 = self.fsm.q_home1.copy()
+            self._target_q2 = self.fsm.q_home2.copy()
+            self._target_g1 = 0.0
+            self._target_g2 = 0.0
             self.fsm.sim_time = 0.0
             self.fsm.state_start_time = 0.0
             self.fsm.telemetry = HandoverTelemetry()
@@ -150,10 +154,14 @@ class SimulationService:
         while not self._shutdown_event.is_set():
             if not self.is_running_fsm:
                 with self._lock:
-                    self.controller.set_arm_joint_targets(1, self.fsm.q_home1)
-                    self.controller.set_arm_joint_targets(2, self.fsm.q_home2)
-                    self.controller.set_gripper(1, 0.0)
-                    self.controller.set_gripper(2, 0.0)
+                    target_q1 = getattr(self, "_target_q1", self.fsm.q_home1)
+                    target_q2 = getattr(self, "_target_q2", self.fsm.q_home2)
+                    target_g1 = getattr(self, "_target_g1", 0.0)
+                    target_g2 = getattr(self, "_target_g2", 0.0)
+                    self.controller.set_arm_joint_targets(1, target_q1)
+                    self.controller.set_arm_joint_targets(2, target_q2)
+                    self.controller.set_gripper(1, target_g1)
+                    self.controller.set_gripper(2, target_g2)
                     mujoco.mj_step(self.model, self.data)
                 time.sleep(0.02)  # ~50 Hz idle rate
             else:
@@ -544,6 +552,91 @@ class SimulationService:
                 "frames": self._record_frames if self._is_recording else 0,
                 "filepath": self._record_filepath if self._is_recording else None,
             }
+
+    def jog_joint(self, arm: int, joint_idx: int, delta_rad: float) -> Dict[str, Any]:
+        """Jogs a single joint angle on the specified arm."""
+        if self.is_running_fsm:
+            return {"status": "error", "message": "Cannot jog arm while autonomous FSM is active"}
+        if arm not in (1, 2) or not (0 <= joint_idx < 6):
+            return {"status": "error", "message": "Invalid arm or joint index"}
+
+        with self._lock:
+            kin = self.controller.get_kinematics(arm)
+            cur_q = kin.get_joint_positions().copy()
+            cur_q[joint_idx] += delta_rad
+            cur_q[joint_idx] = np.clip(cur_q[joint_idx], -2 * np.pi, 2 * np.pi)
+            if arm == 1:
+                self._target_q1 = cur_q
+            else:
+                self._target_q2 = cur_q
+            self.controller.set_arm_joint_targets(arm, cur_q)
+            for _ in range(25):
+                mujoco.mj_step(self.model, self.data)
+            new_ee, _ = kin.get_ee_pose()
+
+        return {
+            "status": "ok",
+            "arm": arm,
+            "joint_idx": joint_idx,
+            "new_positions": [round(float(v), 4) for v in cur_q],
+            "ee_pos": [round(float(p), 4) for p in new_ee],
+            "message": f"Arm {arm} Joint {joint_idx} jogged by {delta_rad:+.3f} rad",
+        }
+
+    def jog_cartesian(self, arm: int, delta_xyz: List[float]) -> Dict[str, Any]:
+        """Jogs the end-effector of the specified arm by [dx, dy, dz] meters."""
+        if self.is_running_fsm:
+            return {"status": "error", "message": "Cannot jog arm while autonomous FSM is active"}
+        if arm not in (1, 2) or len(delta_xyz) != 3:
+            return {"status": "error", "message": "Invalid arm or delta coordinates"}
+
+        with self._lock:
+            kin = self.controller.get_kinematics(arm)
+            cur_pos, cur_quat = kin.get_ee_pose()
+            target_pos = cur_pos + np.array(delta_xyz, dtype=np.float64)
+            # Step IK
+            for _ in range(20):
+                self.controller.step_ik(arm, target_pos, cur_quat, max_joint_step=0.08)
+                mujoco.mj_step(self.model, self.data)
+            new_q = kin.get_joint_positions().copy()
+            if arm == 1:
+                self._target_q1 = new_q
+            else:
+                self._target_q2 = new_q
+            new_ee, _ = kin.get_ee_pose()
+
+        return {
+            "status": "ok",
+            "arm": arm,
+            "target_ee": [round(float(p), 4) for p in target_pos],
+            "actual_ee": [round(float(p), 4) for p in new_ee],
+            "message": f"Arm {arm} EE jogged to {[round(p, 3) for p in new_ee]}",
+        }
+
+    def set_gripper_state(self, arm: int, position: float) -> Dict[str, Any]:
+        """Commands normalized gripper position [0.0 = open, 1.0 = closed]."""
+        if self.is_running_fsm:
+            return {"status": "error", "message": "Cannot toggle gripper while FSM is active"}
+        if arm not in (1, 2):
+            return {"status": "error", "message": "Invalid arm index"}
+
+        clamped = float(np.clip(position, 0.0, 1.0))
+        with self._lock:
+            if arm == 1:
+                self._target_g1 = clamped
+            else:
+                self._target_g2 = clamped
+            self.controller.set_gripper(arm, clamped)
+            for _ in range(35):
+                mujoco.mj_step(self.model, self.data)
+
+        state_str = "CLOSED" if clamped > 0.5 else "OPEN"
+        return {
+            "status": "ok",
+            "arm": arm,
+            "gripper_position": clamped,
+            "message": f"Arm {arm} gripper set to {state_str} ({clamped:.2f})",
+        }
 
     def shutdown(self):
         """Clean shutdown of background threads and renderers."""

@@ -111,8 +111,10 @@ def run_tests():
         assert res_page.status_code == 200
         assert "Bimanual UR10e Robotics Platform" in res_page.text
         assert "cameraFeed" in res_page.text
-        assert "ws/telemetry" in res_page.text
+        assert "mission_control.js" in res_page.text
         assert "recordBtn" in res_page.text
+        res_js = client.get("/js/mission_control.js")
+        assert "ws/telemetry" in res_js.text
         print(f"  --> Delivered Dashboard HTML: {len(res_page.text)} bytes")
         print("  [PASS] Static frontend dashboard delivery verified.")
 
