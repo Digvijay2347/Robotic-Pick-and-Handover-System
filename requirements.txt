@@ -30,3 +30,10 @@ tqdm>=4.66.0
 # Deep Learning & Policy Training (ACT / Imitation Learning)
 torch>=2.0.0
 torchvision>=0.15.0
+
+# Web Platform & API Server
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+websockets>=11.0
+httpx>=0.25.0
+
