@@ -507,6 +507,32 @@ def collect_demonstrations_parallel(
     print(f"  Master HDF5 consolidated: {total_demos} total episodes in {master_hdf5_path}.")
 
     # 5. Export LeRobot Metadata
+    import glob
+    ep_files = sorted(glob.glob(os.path.join(output_dir, "episodes", "episode_*.hdf5")))
+    if len(ep_files) > len(all_saved_summaries):
+        full_summaries = []
+        for ep_f in ep_files:
+            fname = os.path.basename(ep_f)
+            try:
+                ep_idx = int(fname.replace("episode_", "").replace(".hdf5", ""))
+                with h5py.File(ep_f, "r") as f_ep:
+                    n_samp = f_ep["action"].shape[0] if "action" in f_ep else 649
+                    summ = {
+                        "episode_index": ep_idx,
+                        "length": n_samp,
+                        "duration_sec": round(n_samp / fps, 2),
+                        "success": bool(f_ep.attrs.get("success", True)),
+                        "file": fname,
+                    }
+                    for k in f_ep.attrs:
+                        if k not in ("num_samples", "fps", "sim"):
+                            summ[k] = f_ep.attrs[k]
+                    full_summaries.append(summ)
+            except Exception:
+                pass
+        if full_summaries:
+            all_saved_summaries = full_summaries
+
     recorder_meta = EpisodeRecorder(
         output_dir=output_dir,
         dataset_name=dataset_name,
