@@ -39,7 +39,7 @@ def main():
 
     url = f"http://{args.host}:{args.port}"
     print("=" * 80)
-    print("      LAUNCHING BIMANUAL UR10e ROBOTIC WEB PLATFORM (PHASE 1)")
+    print("      LAUNCHING BIMANUAL UR10e ROBOTIC WEB PLATFORM (FULLSTACK PLATFORM)")
     print("=" * 80)
     print(f"  Access URL        : {url}")
     print(f"  API Docs (Swagger): {url}/docs")
