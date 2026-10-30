@@ -32,12 +32,12 @@
 
             <!-- Platform Navigation Tabs -->
             <nav class="nav-tabs">
-                <a href="/" class="nav-tab-btn active">
+                <a href="javascript:void(0)" class="nav-tab-btn active" id="navBtnMissionControl" onclick="switchView('mission-control')">
                     <span>🎮 Mission Control</span>
                 </a>
-                <a href="#dataset-studio" class="nav-tab-btn" onclick="alert('Dataset Studio (Phase 3): 50 Demonstration Episodes Recorded. Full Dataset Inspector coming in Phase 3!')">
+                <a href="javascript:void(0)" class="nav-tab-btn" id="navBtnDatasetStudio" onclick="switchView('dataset-studio')">
                     <span>📊 Dataset Studio</span>
-                    <span class="tab-badge">50 Demos</span>
+                    <span class="tab-badge" id="navBadgeDemos">50 Demos</span>
                 </a>
                 <a href="#perception-lab" class="nav-tab-btn" onclick="alert('Perception Lab: 3D Point Cloud inspection & RANSAC segmentation active.')">
                     <span>👁️ Perception Lab</span>
@@ -69,6 +69,11 @@
     </header>
 
     <div class="app-container">
+
+        <!-- ==================================================================
+             VIEW 1: MISSION CONTROL (PHASE 2)
+             ================================================================== -->
+        <div id="missionControlView" class="view-container">
 
         <!-- ==================================================================
              FULL-WIDTH 16-STATE INTERACTIVE FSM FLOWCHART
@@ -511,9 +516,298 @@
             </div>
         </div>
 
+        </div> <!-- /#missionControlView -->
+
+        <!-- ==================================================================
+             VIEW 2: DATASET STUDIO (PHASE 3)
+             Consolidated HDF5 Demonstration Catalog & Parallel Collection
+             ================================================================== -->
+        <div id="datasetStudioView" class="view-container" style="display: none; flex-direction: column; gap: 16px;">
+            
+            <!-- Top KPI Metrics Banner -->
+            <div class="dataset-kpi-grid">
+                <div class="dataset-kpi-card">
+                    <div class="kpi-label">TOTAL DEMONSTRATIONS</div>
+                    <div class="kpi-value" id="kpiTotalEpisodes">50</div>
+                    <div class="kpi-subtext" id="datasetMetaSub">Consolidated HDF5 • 25 Hz • 3 Synced Cameras</div>
+                </div>
+
+                <div class="dataset-kpi-card">
+                    <div class="kpi-label">TOTAL TRANSITIONS</div>
+                    <div class="kpi-value" id="kpiTotalFrames">32,450</div>
+                    <div class="kpi-subtext">Multi-Modal Action & Observation Frames</div>
+                </div>
+
+                <div class="dataset-kpi-card">
+                    <div class="kpi-label">STORAGE FOOTPRINT</div>
+                    <div class="kpi-value" id="kpiStorageSize">531.97 MB</div>
+                    <div class="kpi-subtext">LZF-Compressed HDF5 + LeRobot Metadata</div>
+                </div>
+
+                <div class="dataset-kpi-card">
+                    <div class="kpi-label">HANDOVER SUCCESS RATE</div>
+                    <div class="kpi-value" id="kpiSuccessRate">100.0%</div>
+                    <div class="kpi-subtext">50 / 50 Verified Inter-Arm Transfers</div>
+                </div>
+            </div>
+
+            <!-- Multi-Worker Parallel Demonstration Collector -->
+            <div class="glass-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                        </svg>
+                        Multi-Worker Parallel Demonstration Collector (Subprocess Engine)
+                    </div>
+
+                    <!-- Master Progress Bar -->
+                    <div class="master-prog-box" style="min-width: 260px;">
+                        <div class="master-prog-meta">
+                            <span id="masterProgText">0 / 10 Episodes</span>
+                            <span id="masterProgPct" style="color:var(--accent-cyan);font-weight:700;">0%</span>
+                        </div>
+                        <div class="master-prog-track">
+                            <div class="master-prog-fill" id="masterProgFill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="collection-grid">
+                    <!-- Left Column: Collection Parameters -->
+                    <div class="collection-config-card">
+                        <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">
+                            Job Parameters
+                        </div>
+
+                        <!-- Target Episodes Slider -->
+                        <div class="slider-group">
+                            <div class="slider-label-row">
+                                <span>Target Episodes</span>
+                                <span class="slider-val-badge" id="collectNumEpisodesVal">10</span>
+                            </div>
+                            <input type="range" class="custom-range" id="collectNumEpisodes" min="1" max="50" step="1" value="10">
+                        </div>
+
+                        <!-- Parallel Workers Slider -->
+                        <div class="slider-group">
+                            <div class="slider-label-row">
+                                <span>Worker Processes</span>
+                                <span class="slider-val-badge" id="collectNumWorkersVal">4</span>
+                            </div>
+                            <input type="range" class="custom-range" id="collectNumWorkers" min="1" max="6" step="1" value="4">
+                        </div>
+
+                        <!-- Control Rate (Hz) Slider -->
+                        <div class="slider-group">
+                            <div class="slider-label-row">
+                                <span>Control Sampling Rate</span>
+                                <span class="slider-val-badge" id="collectFpsVal">25 Hz</span>
+                            </div>
+                            <input type="range" class="custom-range" id="collectFps" min="10" max="50" step="5" value="25">
+                        </div>
+
+                        <!-- Render Quality Dropdown -->
+                        <div style="display:flex;flex-direction:column;gap:4px;">
+                            <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);">Render Resolution:</span>
+                            <select id="collectRenderQuality" class="video-dropdown">
+                                <option value="compact" selected>Compact (112x112 - Standard ACT Policy)</option>
+                                <option value="fast">Fast (84x84 - High-Throughput)</option>
+                                <option value="standard">Standard (224x224 - High-Res Vision)</option>
+                            </select>
+                        </div>
+
+                        <!-- Toggles -->
+                        <div style="display:flex;gap:10px;margin-top:2px;">
+                            <label class="checkbox-pill">
+                                <input type="checkbox" id="collectRandomize" checked>
+                                <span>Shelf Pose Noise</span>
+                            </label>
+                            <label class="checkbox-pill">
+                                <input type="checkbox" id="collectSaveImages" checked>
+                                <span>Save 3x Cameras</span>
+                            </label>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="collection-actions-row">
+                            <button class="btn btn-primary" id="btnStartCollection" style="flex:1;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                                </svg>
+                                Launch Parallel Collection
+                            </button>
+                            <button class="btn btn-danger" id="btnStopCollection" style="width:110px;" disabled>
+                                Cancel Job
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Worker Matrix & Live Terminal -->
+                    <div style="display:flex;flex-direction:column;gap:10px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;">
+                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text-primary);">
+                                Parallel Worker State Matrix
+                            </span>
+                            <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);">
+                                ISOLATED MUJOCO ENVS
+                            </span>
+                        </div>
+
+                        <!-- Worker Grid Matrix (6 Workers) -->
+                        <div class="worker-matrix-grid" id="workerMatrixContainer">
+                            <!-- Populated dynamically by dataset_studio.js -->
+                        </div>
+
+                        <!-- Subprocess Stdout Log Terminal -->
+                        <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px 10px;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);">
+                                <span>COLLECTION WORKER TERMINAL</span>
+                                <span>STDOUT STREAM</span>
+                            </div>
+                            <div class="console-wrapper" id="collectionLogsConsole" style="height:120px;">
+                                <div class="log-entry log-info">[BOOT] Parallel Collector Job Engine ready. Awaiting user dispatch.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demonstration Catalog & Preview Player Grid -->
+            <div class="catalog-player-grid">
+                
+                <!-- Left: 50-Episode Catalog Data Table -->
+                <div class="glass-panel">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            Consolidated 50-Episode Catalog
+                        </div>
+                        <div class="status-badge" id="catalogCount" style="color:var(--accent-cyan);border-color:rgba(0,229,255,0.3);">
+                            50 Episodes
+                        </div>
+                    </div>
+
+                    <div class="catalog-toolbar">
+                        <input type="text" id="episodeSearchInput" class="table-search-input" placeholder="🔍 Filter episode (e.g. demo_12, worker 2)...">
+                        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+                            Click row to inspect trajectory telemetry
+                        </div>
+                    </div>
+
+                    <div class="table-scroll-container">
+                        <table class="dataset-table" id="episodesTable">
+                            <thead>
+                                <tr>
+                                    <th>Episode ID</th>
+                                    <th>Status</th>
+                                    <th>Length</th>
+                                    <th>Duration</th>
+                                    <th>Dual Custody</th>
+                                    <th>Bin Placement</th>
+                                    <th>Worker</th>
+                                </tr>
+                            </thead>
+                            <tbody id="episodesTableBody">
+                                <!-- Populated dynamically by dataset_studio.js -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right: Demonstration Video Player & Selected Episode Details -->
+                <div class="glass-panel" style="gap:12px;">
+                    <div class="panel-header">
+                        <div class="panel-title">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                            </svg>
+                            Demonstration Video Inspector
+                        </div>
+                        <div style="display:flex;gap:4px;">
+                            <button class="cam-btn video-speed-btn" data-speed="0.5">0.5x</button>
+                            <button class="cam-btn video-speed-btn active" data-speed="1.0">1.0x</button>
+                            <button class="cam-btn video-speed-btn" data-speed="1.5">1.5x</button>
+                            <button class="cam-btn video-speed-btn" data-speed="2.0">2.0x</button>
+                        </div>
+                    </div>
+
+                    <!-- Recording Dropdown Selector -->
+                    <div class="video-selector-row">
+                        <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);white-space:nowrap;">Clip:</span>
+                        <select id="videoSelectDropdown" class="video-dropdown">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+
+                    <!-- Video Viewport -->
+                    <div class="video-player-wrapper">
+                        <video id="demoVideoPlayer" controls playsinline loop muted>
+                            <source src="/recordings/phase6_demo_049.mp4" type="video/mp4">
+                            Your browser does not support HTML5 MP4 video.
+                        </video>
+                    </div>
+
+                    <!-- Selected Episode Metadata Inspection Card -->
+                    <div class="selected-ep-card">
+                        <div class="selected-ep-header">
+                            <span style="color:var(--accent-cyan);font-weight:700;" id="selectedEpTitle">DEMO_0</span>
+                            <span class="badge-success">INTER-ARM TRANSFER VERIFIED</span>
+                        </div>
+                        <div class="selected-ep-grid">
+                            <div>
+                                <span style="color:var(--text-muted);">Trajectory:</span>
+                                <span id="selectedEpSteps" style="color:var(--text-primary);font-weight:600;">649 steps (25.96s)</span>
+                            </div>
+                            <div>
+                                <span style="color:var(--text-muted);">Dual Hold:</span>
+                                <span id="selectedEpDualHold" style="color:var(--accent-cyan);">Simultaneous Clamped</span>
+                            </div>
+                            <div>
+                                <span style="color:var(--text-muted);">Bin Placement:</span>
+                                <span id="selectedEpBinDist" style="color:var(--accent-green);">1.58 cm (Optimal)</span>
+                            </div>
+                            <div>
+                                <span style="color:var(--text-muted);">Subprocess:</span>
+                                <span id="selectedEpWorker" style="color:var(--text-primary);">Worker Process #0</span>
+                            </div>
+                        </div>
+                        <div style="font-size:9.5px;color:var(--text-muted);border-top:1px solid rgba(255,255,200,0.06);padding-top:4px;display:flex;justify-content:space-between;">
+                            <span>Observation Tensors: [top, wrist1, wrist2] (112x112)</span>
+                            <span id="selectedEpTrajCount" style="color:var(--accent-cyan);">40 decimated checkpoints</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 14-DOF Action Distribution Spectrum -->
+            <div class="glass-panel action-spectrum-card">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                        </svg>
+                        14-DOF Actuator Action Bounds Spectrum (LeRobot stats.json)
+                    </div>
+                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
+                        50 EPISODES • MIN / MAX BOUNDS & MEAN DISTRIBUTION
+                    </span>
+                </div>
+
+                <div class="spectrum-bars-grid" id="actionSpectrumContainer">
+                    <!-- Populated dynamically by dataset_studio.js -->
+                </div>
+            </div>
+
+        </div> <!-- /#datasetStudioView -->
+
     </div>
 
-    <!-- Master Interactive Engine -->
+    <!-- Master Interactive Engines -->
     <script src="js/mission_control.js"></script>
+    <script src="js/dataset_studio.js"></script>
 </body>
 </html>
