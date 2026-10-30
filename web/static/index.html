@@ -8,8 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet">
-    <!-- Design System CSS -->
-    <link rel="stylesheet" href="css/style.css">
+    <!-- Design System CSS with Cache Buster -->
+    <link rel="stylesheet" href="css/style.css?v=3.2">
 </head>
 <body>
 
@@ -522,192 +522,303 @@
              VIEW 2: DATASET STUDIO (PHASE 3)
              Consolidated HDF5 Demonstration Catalog & Parallel Collection
              ================================================================== -->
+        <!-- ==================================================================
+             VIEW 2: OBSIDIAN DATASET STUDIO (PHASE 3)
+             Exact layout & aesthetics matching dataset_studio_ui_draft
+             ================================================================== -->
         <div id="datasetStudioView" class="view-container" style="display: none; flex-direction: column; gap: 16px;">
             
-            <!-- Top KPI Metrics Banner -->
-            <div class="dataset-kpi-grid">
-                <div class="dataset-kpi-card">
-                    <div class="kpi-label">TOTAL DEMONSTRATIONS</div>
-                    <div class="kpi-value" id="kpiTotalEpisodes">50</div>
-                    <div class="kpi-subtext" id="datasetMetaSub">Consolidated HDF5 • 25 Hz • 3 Synced Cameras</div>
+            <!-- TOP MASTER ROW: 3-COLUMN STUDIO GRID -->
+            <div class="studio-top-row">
+
+                <!-- 1. LEFT PANEL: OBSIDIAN CONTROL PANEL -->
+                <div class="obsidian-panel obsidian-control-panel">
+                    <div class="obsidian-panel-header">
+                        <div class="obsidian-panel-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="3" width="7" height="7"></rect>
+                                <rect x="14" y="14" width="7" height="7"></rect>
+                                <rect x="3" y="14" width="7" height="7"></rect>
+                            </svg>
+                            OBSIDIAN CONTROL PANEL
+                        </div>
+                        <span class="obsidian-subtitle">COLLECTOR v3.0</span>
+                    </div>
+
+                    <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text-primary);letter-spacing:0.5px;">
+                        PARALLEL COLLECTION
+                    </div>
+
+                    <!-- Job Title Input -->
+                    <div class="obsidian-form-group">
+                        <input type="text" id="collectJobTitle" class="obsidian-input" value="handover_demos_batch_02" placeholder="Collection Job Title">
+                        <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--accent-cyan);" id="workerActiveThreadsText">
+                            6 Worker Threads (Active: 6)
+                        </span>
+                    </div>
+
+                    <!-- Episodes to Collect Slider -->
+                    <div class="obsidian-form-group">
+                        <div class="obsidian-label-row">
+                            <span>EPISODES TO COLLECT</span>
+                            <span class="obsidian-badge-val" id="collectNumEpisodesVal">10 / 50</span>
+                        </div>
+                        <input type="range" class="obsidian-slider" id="collectNumEpisodes" min="1" max="50" step="1" value="10">
+                        <div style="display:flex;justify-content:space-between;font-family:var(--font-mono);font-size:8.5px;color:var(--text-muted);">
+                            <span>Progress Goal</span>
+                            <span id="collectNumEpisodesPct" style="color:var(--accent-cyan);font-weight:700;">20% Target</span>
+                        </div>
+                    </div>
+
+                    <!-- Worker Threads Slider -->
+                    <div class="obsidian-form-group">
+                        <div class="obsidian-label-row">
+                            <span>WORKER THREADS</span>
+                            <span class="obsidian-badge-val" id="collectNumWorkersVal">4 / 6</span>
+                        </div>
+                        <input type="range" class="obsidian-slider" id="collectNumWorkers" min="1" max="6" step="1" value="4">
+                    </div>
+
+                    <!-- Domain Randomization Toggle -->
+                    <label class="obsidian-toggle-card">
+                        <div class="obsidian-toggle-left">
+                            <span class="obsidian-toggle-title">DOMAIN RANDOMIZATION</span>
+                            <span class="obsidian-toggle-desc">Shelf Pose, Lighting, Friction Noise</span>
+                        </div>
+                        <div class="switch-ui">
+                            <input type="checkbox" id="collectRandomize" checked>
+                            <span class="switch-slider"></span>
+                        </div>
+                    </label>
+
+                    <!-- Multi-Camera Recording Toggle -->
+                    <label class="obsidian-toggle-card">
+                        <div class="obsidian-toggle-left">
+                            <span class="obsidian-toggle-title">MULTI-CAMERA RECORDING</span>
+                            <span class="obsidian-toggle-desc">Top, Wrist1, Wrist2 (112×112)</span>
+                        </div>
+                        <div class="switch-ui">
+                            <input type="checkbox" id="collectSaveImages" checked>
+                            <span class="switch-slider"></span>
+                        </div>
+                    </label>
+
+                    <!-- Control Rate & Resolution -->
+                    <div class="obsidian-form-group">
+                        <div class="obsidian-label-row">
+                            <span>SAMPLING RATE (HZ)</span>
+                            <span class="obsidian-badge-val" id="collectFpsVal">25 Hz</span>
+                        </div>
+                        <input type="range" class="obsidian-slider" id="collectFps" min="10" max="50" step="5" value="25">
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div style="display:flex;flex-direction:column;gap:8px;margin-top:4px;">
+                        <button class="obsidian-btn-start" id="btnStartCollection">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            START COLLECTION
+                        </button>
+                        <button class="obsidian-btn-stop" id="btnStopCollection" disabled>
+                            STOP COLLECTION
+                        </button>
+                    </div>
                 </div>
 
-                <div class="dataset-kpi-card">
-                    <div class="kpi-label">TOTAL TRANSITIONS</div>
-                    <div class="kpi-value" id="kpiTotalFrames">32,450</div>
-                    <div class="kpi-subtext">Multi-Modal Action & Observation Frames</div>
-                </div>
-
-                <div class="dataset-kpi-card">
-                    <div class="kpi-label">STORAGE FOOTPRINT</div>
-                    <div class="kpi-value" id="kpiStorageSize">531.97 MB</div>
-                    <div class="kpi-subtext">LZF-Compressed HDF5 + LeRobot Metadata</div>
-                </div>
-
-                <div class="dataset-kpi-card">
-                    <div class="kpi-label">HANDOVER SUCCESS RATE</div>
-                    <div class="kpi-value" id="kpiSuccessRate">100.0%</div>
-                    <div class="kpi-subtext">50 / 50 Verified Inter-Arm Transfers</div>
-                </div>
-            </div>
-
-            <!-- Multi-Worker Parallel Demonstration Collector -->
-            <div class="glass-panel">
-                <div class="panel-header">
-                    <div class="panel-title">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                        </svg>
-                        Multi-Worker Parallel Demonstration Collector (Subprocess Engine)
+                <!-- 2. CENTER PANEL: LIVE PARALLEL EXECUTION MATRIX -->
+                <div class="obsidian-panel matrix-panel">
+                    <div class="obsidian-panel-header">
+                        <div class="obsidian-panel-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect>
+                                <rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect>
+                                <line x1="6" y1="6" x2="6.01" y2="6"></line>
+                                <line x1="6" y1="18" x2="6.01" y2="18"></line>
+                            </svg>
+                            LIVE PARALLEL EXECUTION MATRIX
+                        </div>
+                        <div class="obsidian-subtitle">ISOLATED MUJOCO ENVIRONMENTS</div>
                     </div>
 
                     <!-- Master Progress Bar -->
-                    <div class="master-prog-box" style="min-width: 260px;">
-                        <div class="master-prog-meta">
-                            <span id="masterProgText">0 / 10 Episodes</span>
-                            <span id="masterProgPct" style="color:var(--accent-cyan);font-weight:700;">0%</span>
+                    <div class="matrix-master-prog">
+                        <span class="matrix-master-text" id="masterProgText">0 / 10 Episodes</span>
+                        <div class="matrix-master-track">
+                            <div class="matrix-master-fill" id="masterProgFill" style="width: 0%;"></div>
                         </div>
-                        <div class="master-prog-track">
-                            <div class="master-prog-fill" id="masterProgFill" style="width: 0%;"></div>
+                        <span class="matrix-master-pct" id="masterProgPct">0%</span>
+                    </div>
+
+                    <!-- 6 Worker Cards Matrix Grid (3x2) -->
+                    <div class="obsidian-worker-grid" id="workerMatrixContainer">
+                        <!-- Populated with SVG vectors and progress metrics by dataset_studio.js -->
+                    </div>
+
+                    <!-- Subprocess Stdout Terminal Log Console -->
+                    <div class="obsidian-terminal-box">
+                        <div class="obsidian-terminal-header">
+                            <span>WORKER THREAD STDOUT STREAM</span>
+                            <span style="color:var(--accent-cyan);">ACTIVE TELEMETRY</span>
+                        </div>
+                        <div class="obsidian-terminal-scroll" id="collectionLogsConsole">
+                            <div class="log-entry log-info">[BOOT] Parallel Collector Job Engine ready. Awaiting worker dispatch.</div>
                         </div>
                     </div>
                 </div>
 
-                <div class="collection-grid">
-                    <!-- Left Column: Collection Parameters -->
-                    <div class="collection-config-card">
-                        <div style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:4px;">
-                            Job Parameters
+                <!-- 3. RIGHT PANEL: DATASET ANALYTICS -->
+                <div class="obsidian-panel analytics-panel">
+                    <div class="obsidian-panel-header">
+                        <div class="obsidian-panel-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="18" y1="20" x2="18" y2="10"></line>
+                                <line x1="12" y1="20" x2="12" y2="4"></line>
+                                <line x1="6" y1="20" x2="6" y2="14"></line>
+                            </svg>
+                            DATASET ANALYTICS
                         </div>
+                        <span class="obsidian-subtitle">REAL-TIME</span>
+                    </div>
 
-                        <!-- Target Episodes Slider -->
-                        <div class="slider-group">
-                            <div class="slider-label-row">
-                                <span>Target Episodes</span>
-                                <span class="slider-val-badge" id="collectNumEpisodesVal">10</span>
+                    <!-- Action Distribution Vertical Bar Spectrum -->
+                    <div class="action-bars-card">
+                        <div class="chart-title-sm">ACTION DISTRIBUTION</div>
+                        <div class="action-bars-flex" id="actionBarsFlex">
+                            <div class="action-bar-col">
+                                <div class="action-bar-track"><div class="action-bar-fill" style="height: 75%;"></div></div>
+                                <span class="action-bar-label">Grasp</span>
                             </div>
-                            <input type="range" class="custom-range" id="collectNumEpisodes" min="1" max="50" step="1" value="10">
-                        </div>
-
-                        <!-- Parallel Workers Slider -->
-                        <div class="slider-group">
-                            <div class="slider-label-row">
-                                <span>Worker Processes</span>
-                                <span class="slider-val-badge" id="collectNumWorkersVal">4</span>
+                            <div class="action-bar-col">
+                                <div class="action-bar-track"><div class="action-bar-fill" style="height: 45%;"></div></div>
+                                <span class="action-bar-label">Move</span>
                             </div>
-                            <input type="range" class="custom-range" id="collectNumWorkers" min="1" max="6" step="1" value="4">
-                        </div>
-
-                        <!-- Control Rate (Hz) Slider -->
-                        <div class="slider-group">
-                            <div class="slider-label-row">
-                                <span>Control Sampling Rate</span>
-                                <span class="slider-val-badge" id="collectFpsVal">25 Hz</span>
+                            <div class="action-bar-col">
+                                <div class="action-bar-track"><div class="action-bar-fill" style="height: 60%;"></div></div>
+                                <span class="action-bar-label">Place</span>
                             </div>
-                            <input type="range" class="custom-range" id="collectFps" min="10" max="50" step="5" value="25">
+                            <div class="action-bar-col">
+                                <div class="action-bar-track"><div class="action-bar-fill" style="height: 80%;"></div></div>
+                                <span class="action-bar-label">Reach</span>
+                            </div>
+                            <div class="action-bar-col">
+                                <div class="action-bar-track"><div class="action-bar-fill" style="height: 35%;"></div></div>
+                                <span class="action-bar-label">Pan</span>
+                            </div>
+                            <div class="action-bar-col">
+                                <div class="action-bar-track"><div class="action-bar-fill" style="height: 55%;"></div></div>
+                                <span class="action-bar-label">Lift</span>
+                            </div>
                         </div>
+                    </div>
 
-                        <!-- Render Quality Dropdown -->
-                        <div style="display:flex;flex-direction:column;gap:4px;">
-                            <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);">Render Resolution:</span>
-                            <select id="collectRenderQuality" class="video-dropdown">
-                                <option value="compact" selected>Compact (112x112 - Standard ACT Policy)</option>
-                                <option value="fast">Fast (84x84 - High-Throughput)</option>
-                                <option value="standard">Standard (224x224 - High-Res Vision)</option>
-                            </select>
-                        </div>
-
-                        <!-- Toggles -->
-                        <div style="display:flex;gap:10px;margin-top:2px;">
-                            <label class="checkbox-pill">
-                                <input type="checkbox" id="collectRandomize" checked>
-                                <span>Shelf Pose Noise</span>
-                            </label>
-                            <label class="checkbox-pill">
-                                <input type="checkbox" id="collectSaveImages" checked>
-                                <span>Save 3x Cameras</span>
-                            </label>
-                        </div>
-
-                        <!-- Action Buttons -->
-                        <div class="collection-actions-row">
-                            <button class="btn btn-primary" id="btnStartCollection" style="flex:1;">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" width="14" height="14">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+                    <!-- Oscilloscope Contact Force Distribution Waves -->
+                    <div class="contact-wave-card">
+                        <div class="chart-title-sm">CONTACT FORCE DISTRIBUTION</div>
+                        <div class="wave-row">
+                            <span class="wave-label" style="color:var(--accent-cyan);">FX</span>
+                            <div class="wave-svg-container">
+                                <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+                                    <path d="M0,10 Q20,3 40,10 T80,10 T120,4 T160,16 T200,10" fill="none" stroke="#00e5ff" stroke-width="1.5"></path>
                                 </svg>
-                                Launch Parallel Collection
-                            </button>
-                            <button class="btn btn-danger" id="btnStopCollection" style="width:110px;" disabled>
-                                Cancel Job
-                            </button>
+                            </div>
+                        </div>
+                        <div class="wave-row">
+                            <span class="wave-label" style="color:var(--accent-blue);">FY</span>
+                            <div class="wave-svg-container">
+                                <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+                                    <path d="M0,10 Q25,16 50,10 T100,5 T150,14 T200,10" fill="none" stroke="#2979ff" stroke-width="1.5"></path>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="wave-row">
+                            <span class="wave-label" style="color:var(--accent-purple);">FZ</span>
+                            <div class="wave-svg-container">
+                                <svg viewBox="0 0 200 20" preserveAspectRatio="none">
+                                    <path d="M0,10 Q15,4 30,10 T60,17 T90,7 T120,13 T150,6 T180,14 T200,10" fill="none" stroke="#d500f9" stroke-width="1.5"></path>
+                                </svg>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Right Column: Worker Matrix & Live Terminal -->
-                    <div style="display:flex;flex-direction:column;gap:10px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;">
-                            <span style="font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--text-primary);">
-                                Parallel Worker State Matrix
-                            </span>
-                            <span style="font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);">
-                                ISOLATED MUJOCO ENVS
-                            </span>
-                        </div>
-
-                        <!-- Worker Grid Matrix (6 Workers) -->
-                        <div class="worker-matrix-grid" id="workerMatrixContainer">
-                            <!-- Populated dynamically by dataset_studio.js -->
-                        </div>
-
-                        <!-- Subprocess Stdout Log Terminal -->
-                        <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);padding:8px 10px;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:6px;font-family:var(--font-mono);font-size:9.5px;color:var(--text-muted);">
-                                <span>COLLECTION WORKER TERMINAL</span>
-                                <span>STDOUT STREAM</span>
-                            </div>
-                            <div class="console-wrapper" id="collectionLogsConsole" style="height:120px;">
-                                <div class="log-entry log-info">[BOOT] Parallel Collector Job Engine ready. Awaiting user dispatch.</div>
+                    <!-- Storage Circular Semi-Gauge -->
+                    <div class="storage-gauge-card">
+                        <div class="gauge-svg-wrap">
+                            <svg viewBox="0 0 100 100">
+                                <defs>
+                                    <linearGradient id="cyanBlueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                        <stop offset="0%" stop-color="#00e5ff"/>
+                                        <stop offset="100%" stop-color="#2979ff"/>
+                                    </linearGradient>
+                                </defs>
+                                <circle class="gauge-bg-circle" cx="50" cy="50" r="40"></circle>
+                                <circle class="gauge-prog-circle" id="storageGaugeCircle" cx="50" cy="50" r="40" stroke-dasharray="251.2" stroke-dashoffset="118"></circle>
+                            </svg>
+                            <div class="gauge-center-text">
+                                <div class="gauge-center-val" id="kpiStorageSize">532M</div>
+                                <div class="gauge-center-unit">/ 1 GB</div>
                             </div>
                         </div>
+                        <div class="storage-meta-info">
+                            <div style="font-weight:700;color:#fff;">Episodes: <span id="kpiTotalEpisodes" style="color:var(--accent-cyan);">50</span></div>
+                            <div style="color:var(--text-secondary);">Frames: <span id="kpiTotalFrames">32,450</span></div>
+                            <div class="storage-status-chip">
+                                <span class="status-dot-sm"></span>
+                                <span>STATUS: OPERATIONAL</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual 3D Camera Preview Card -->
+                    <div class="vision-preview-card">
+                        <img src="/api/stream/snapshot/overhead_cam" alt="Camera Perspective" id="datasetVisionThumb">
+                        <div class="vision-tag-overlay">SYNCHRONIZED EYE-IN-HAND CAMERA</div>
                     </div>
                 </div>
+
             </div>
 
-            <!-- Demonstration Catalog & Preview Player Grid -->
-            <div class="catalog-player-grid">
-                
-                <!-- Left: 50-Episode Catalog Data Table -->
-                <div class="glass-panel">
-                    <div class="panel-header">
-                        <div class="panel-title">
-                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            <!-- BOTTOM MASTER ROW: RECORDED DEMONSTRATIONS CATALOG & VIDEO PREVIEW -->
+            <div class="studio-bottom-row">
+
+                <!-- 1. LEFT PANEL: RECORDED DEMONSTRATIONS CATALOG TABLE -->
+                <div class="obsidian-panel demonstrations-panel">
+                    <div class="obsidian-panel-header">
+                        <div class="obsidian-panel-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
                             </svg>
-                            Consolidated 50-Episode Catalog
+                            RECORDED DEMONSTRATIONS
                         </div>
-                        <div class="status-badge" id="catalogCount" style="color:var(--accent-cyan);border-color:rgba(0,229,255,0.3);">
-                            50 Episodes
+                        <span class="obsidian-badge-val" id="catalogCount">50 Episodes</span>
+                    </div>
+
+                    <div class="catalog-search-bar">
+                        <input type="text" id="episodeSearchInput" class="obsidian-input" placeholder="🔍 Search episodes by ID (e.g. #0050, demo_12)..." style="max-width:320px;">
+                        <div style="display:flex;gap:6px;">
+                            <button class="cam-btn active" style="font-size:10px;padding:4px 10px;">All (50)</button>
+                            <button class="cam-btn" style="font-size:10px;padding:4px 10px;">Success (50)</button>
+                            <button class="cam-btn" style="font-size:10px;padding:4px 10px;">Dual Hold</button>
                         </div>
                     </div>
 
-                    <div class="catalog-toolbar">
-                        <input type="text" id="episodeSearchInput" class="table-search-input" placeholder="🔍 Filter episode (e.g. demo_12, worker 2)...">
-                        <div style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
-                            Click row to inspect trajectory telemetry
-                        </div>
-                    </div>
-
-                    <div class="table-scroll-container">
-                        <table class="dataset-table" id="episodesTable">
+                    <div class="obsidian-table-scroll">
+                        <table class="obsidian-table" id="episodesTable">
                             <thead>
                                 <tr>
-                                    <th>Episode ID</th>
-                                    <th>Status</th>
-                                    <th>Length</th>
-                                    <th>Duration</th>
-                                    <th>Dual Custody</th>
-                                    <th>Bin Placement</th>
-                                    <th>Worker</th>
+                                    <th>ID #</th>
+                                    <th>STATUS</th>
+                                    <th>DURATION</th>
+                                    <th>STEPS</th>
+                                    <th>OBJECT</th>
+                                    <th>AGENT</th>
+                                    <th>TIME</th>
+                                    <th>ACTIONS</th>
                                 </tr>
                             </thead>
                             <tbody id="episodesTableBody">
@@ -717,14 +828,21 @@
                     </div>
                 </div>
 
-                <!-- Right: Demonstration Video Player & Selected Episode Details -->
-                <div class="glass-panel" style="gap:12px;">
-                    <div class="panel-header">
-                        <div class="panel-title">
-                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                <!-- 2. RIGHT PANEL: SYNCHRONIZED DEMONSTRATION PLAYER -->
+                <div class="obsidian-panel video-preview-panel">
+                    <div class="obsidian-panel-header">
+                        <div class="obsidian-panel-title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                                <line x1="7" y1="2" x2="7" y2="22"></line>
+                                <line x1="17" y1="2" x2="17" y2="22"></line>
+                                <line x1="2" y1="12" x2="22" y2="12"></line>
+                                <line x1="2" y1="7" x2="7" y2="7"></line>
+                                <line x1="2" y1="17" x2="7" y2="17"></line>
+                                <line x1="17" y1="17" x2="22" y2="17"></line>
+                                <line x1="17" y1="7" x2="22" y2="7"></line>
                             </svg>
-                            Demonstration Video Inspector
+                            VIDEO PREVIEW
                         </div>
                         <div style="display:flex;gap:4px;">
                             <button class="cam-btn video-speed-btn" data-speed="0.5">0.5x</button>
@@ -734,72 +852,46 @@
                         </div>
                     </div>
 
-                    <!-- Recording Dropdown Selector -->
-                    <div class="video-selector-row">
-                        <span style="font-family:var(--font-mono);font-size:10.5px;color:var(--text-secondary);white-space:nowrap;">Clip:</span>
-                        <select id="videoSelectDropdown" class="video-dropdown">
+                    <!-- Video Selector Dropdown -->
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <select id="videoSelectDropdown" class="obsidian-select">
                             <!-- Populated dynamically -->
                         </select>
                     </div>
 
                     <!-- Video Viewport -->
-                    <div class="video-player-wrapper">
+                    <div class="video-player-box">
                         <video id="demoVideoPlayer" controls playsinline loop muted>
                             <source src="/recordings/phase6_demo_049.mp4" type="video/mp4">
                             Your browser does not support HTML5 MP4 video.
                         </video>
                     </div>
 
-                    <!-- Selected Episode Metadata Inspection Card -->
-                    <div class="selected-ep-card">
-                        <div class="selected-ep-header">
-                            <span style="color:var(--accent-cyan);font-weight:700;" id="selectedEpTitle">DEMO_0</span>
-                            <span class="badge-success">INTER-ARM TRANSFER VERIFIED</span>
+                    <!-- Selected Episode Metadata Chips -->
+                    <div class="selected-ep-card-obsidian" id="selectedEpDetailsCard">
+                        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:6px;">
+                            <span style="color:var(--accent-cyan);font-weight:700;" id="selectedEpTitle">ID #0049</span>
+                            <span class="obsidian-badge-success">INTER-ARM TRANSFER VERIFIED</span>
                         </div>
-                        <div class="selected-ep-grid">
-                            <div>
-                                <span style="color:var(--text-muted);">Trajectory:</span>
-                                <span id="selectedEpSteps" style="color:var(--text-primary);font-weight:600;">649 steps (25.96s)</span>
-                            </div>
-                            <div>
-                                <span style="color:var(--text-muted);">Dual Hold:</span>
-                                <span id="selectedEpDualHold" style="color:var(--accent-cyan);">Simultaneous Clamped</span>
-                            </div>
-                            <div>
-                                <span style="color:var(--text-muted);">Bin Placement:</span>
-                                <span id="selectedEpBinDist" style="color:var(--accent-green);">1.58 cm (Optimal)</span>
-                            </div>
-                            <div>
-                                <span style="color:var(--text-muted);">Subprocess:</span>
-                                <span id="selectedEpWorker" style="color:var(--text-primary);">Worker Process #0</span>
-                            </div>
+                        <div class="selected-ep-row-obsidian">
+                            <span style="color:var(--text-muted);">Trajectory Steps:</span>
+                            <span id="selectedEpSteps" style="color:#fff;font-weight:600;">649 steps (25.96s)</span>
                         </div>
-                        <div style="font-size:9.5px;color:var(--text-muted);border-top:1px solid rgba(255,255,200,0.06);padding-top:4px;display:flex;justify-content:space-between;">
-                            <span>Observation Tensors: [top, wrist1, wrist2] (112x112)</span>
-                            <span id="selectedEpTrajCount" style="color:var(--accent-cyan);">40 decimated checkpoints</span>
+                        <div class="selected-ep-row-obsidian">
+                            <span style="color:var(--text-muted);">Dual Gripper Hold:</span>
+                            <span id="selectedEpDualHold" style="color:var(--accent-cyan);">Confirmed Simultaneous Grip</span>
+                        </div>
+                        <div class="selected-ep-row-obsidian">
+                            <span style="color:var(--text-muted);">Placement Accuracy:</span>
+                            <span id="selectedEpBinDist" style="color:var(--accent-green);">1.58 cm (Sub-2cm Optimal)</span>
+                        </div>
+                        <div class="selected-ep-row-obsidian">
+                            <span style="color:var(--text-muted);">Worker Process:</span>
+                            <span id="selectedEpWorker" style="color:#fff;">Worker Process #0</span>
                         </div>
                     </div>
                 </div>
 
-            </div>
-
-            <!-- 14-DOF Action Distribution Spectrum -->
-            <div class="glass-panel action-spectrum-card">
-                <div class="panel-header">
-                    <div class="panel-title">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
-                        </svg>
-                        14-DOF Actuator Action Bounds Spectrum (LeRobot stats.json)
-                    </div>
-                    <span style="font-family:var(--font-mono);font-size:10px;color:var(--text-muted);">
-                        50 EPISODES • MIN / MAX BOUNDS & MEAN DISTRIBUTION
-                    </span>
-                </div>
-
-                <div class="spectrum-bars-grid" id="actionSpectrumContainer">
-                    <!-- Populated dynamically by dataset_studio.js -->
-                </div>
             </div>
 
         </div> <!-- /#datasetStudioView -->

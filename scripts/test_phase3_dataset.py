@@ -111,9 +111,10 @@ def test_index_html_dom_elements():
     assert 'id="navBtnDatasetStudio"' in html, "navBtnDatasetStudio button missing in index.html"
     assert 'id="episodesTableBody"' in html, "episodesTableBody missing in index.html"
     assert 'id="demoVideoPlayer"' in html, "demoVideoPlayer missing in index.html"
-    assert 'id="actionSpectrumContainer"' in html, "actionSpectrumContainer missing in index.html"
+    assert 'id="actionBarsFlex"' in html, "actionBarsFlex missing in index.html"
+    assert 'id="workerMatrixContainer"' in html, "workerMatrixContainer missing in index.html"
     assert 'src="js/dataset_studio.js"' in html, "dataset_studio.js script tag missing in index.html"
-    print("  --> PASSED: All Phase 3 DOM containers, IDs, and script tags validated.")
+    print("  --> PASSED: All Obsidian Dataset Studio DOM containers, IDs, and script tags validated.")
 
 
 if __name__ == "__main__":
