@@ -32,16 +32,39 @@ const ROBOT_ARM_SVG = `
 function switchView(viewName) {
     const missionView = document.getElementById("missionControlView");
     const datasetView = document.getElementById("datasetStudioView");
+    const neuralView = document.getElementById("neuralStudioView");
+
     const navMission = document.getElementById("navBtnMissionControl");
     const navDataset = document.getElementById("navBtnDatasetStudio");
+    const navNeural = document.getElementById("navBtnNeuralStudio");
 
-    if (viewName === "dataset-studio") {
-        if (missionView) missionView.style.display = "none";
+    // Hide all views first
+    if (missionView) missionView.style.display = "none";
+    if (datasetView) datasetView.style.display = "none";
+    if (neuralView) neuralView.style.display = "none";
+
+    // Reset active nav state
+    if (navMission) navMission.classList.remove("active");
+    if (navDataset) navDataset.classList.remove("active");
+    if (navNeural) navNeural.classList.remove("active");
+
+    if (viewName === "neural-studio") {
+        if (neuralView) {
+            neuralView.style.display = "flex";
+            neuralView.classList.add("view-fade-in");
+        }
+        if (navNeural) navNeural.classList.add("active");
+        window.location.hash = "neural-studio";
+
+        // Initialize neural studio engine if loaded
+        if (typeof initNeuralStudio === "function") {
+            initNeuralStudio();
+        }
+    } else if (viewName === "dataset-studio") {
         if (datasetView) {
             datasetView.style.display = "flex";
             datasetView.classList.add("view-fade-in");
         }
-        if (navMission) navMission.classList.remove("active");
         if (navDataset) navDataset.classList.add("active");
         window.location.hash = "dataset-studio";
 
@@ -51,12 +74,10 @@ function switchView(viewName) {
         }
     } else {
         // Mission Control
-        if (datasetView) datasetView.style.display = "none";
         if (missionView) {
             missionView.style.display = "block";
             missionView.classList.add("view-fade-in");
         }
-        if (navDataset) navDataset.classList.remove("active");
         if (navMission) navMission.classList.add("active");
         window.location.hash = "mission-control";
     }
@@ -64,7 +85,9 @@ function switchView(viewName) {
 
 // Window popstate / hashchange listener
 window.addEventListener("hashchange", () => {
-    if (window.location.hash === "#dataset-studio") {
+    if (window.location.hash === "#neural-studio") {
+        switchView("neural-studio");
+    } else if (window.location.hash === "#dataset-studio") {
         switchView("dataset-studio");
     } else if (window.location.hash === "#mission-control" || window.location.hash === "") {
         switchView("mission-control");
@@ -79,7 +102,9 @@ document.addEventListener("DOMContentLoaded", () => {
     renderDefaultWorkerMatrix();
 
     // Check initial hash
-    if (window.location.hash === "#dataset-studio") {
+    if (window.location.hash === "#neural-studio") {
+        switchView("neural-studio");
+    } else if (window.location.hash === "#dataset-studio") {
         switchView("dataset-studio");
     }
 

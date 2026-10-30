@@ -18,7 +18,7 @@ if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
 
 from web.server.simulation_service import SimulationService
-from web.server.routers import video_router, telemetry_router, system_router, dataset_router
+from web.server.routers import video_router, telemetry_router, system_router, dataset_router, training_router
 
 
 @asynccontextmanager
@@ -58,6 +58,7 @@ app.include_router(system_router)
 app.include_router(video_router)
 app.include_router(telemetry_router)
 app.include_router(dataset_router)
+app.include_router(training_router)
 
 # Mount recordings directory for demonstration video playback
 RECORDINGS_DIR = os.path.abspath(os.path.join(ROOT_DIR, "recordings"))
