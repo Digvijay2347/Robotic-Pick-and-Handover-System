@@ -33,6 +33,11 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=None, help="Override transformer learning rate")
     parser.add_argument("--device", type=str, default=None, help="Device to use ('cpu', 'cuda', 'auto')")
     parser.add_argument("--save-dir", type=str, default=None, help="Directory to save model checkpoints")
+    parser.add_argument("--output-name", type=str, default="best_model.pt", help="Filename for the best model checkpoint")
+    parser.add_argument("--history-name", type=str, default="training_history.json", help="Filename for training history JSON")
+    parser.add_argument("--step-stride", type=int, default=None, help="Subsampling stride across frames")
+    parser.add_argument("--resume", type=str, default=None, help="Path to checkpoint to warmstart from")
+    parser.add_argument("--unfreeze-backbone", action="store_true", help="Unfreeze layer4 of visual backbones for fine-tuning")
     return parser.parse_args()
 
 
@@ -105,7 +110,7 @@ def train_act():
         chunk_size=config["model"]["chunk_size"],
         camera_names=config["dataset"]["camera_names"],
         image_size=tuple(config["dataset"]["input_image_size"]),
-        step_stride=config["dataset"].get("step_stride", 1),
+        step_stride=args.step_stride or config["dataset"].get("step_stride", 2),
     )
 
     total_samples = len(full_dataset)
@@ -154,27 +159,47 @@ def train_act():
         latent_dim=config["model"]["latent_dim"],
         dropout=config["model"]["dropout"],
         kl_weight=config["training"]["kl_weight"],
-        freeze_backbone=config["model"].get("freeze_backbone", True),
+        freeze_backbone=not args.unfreeze_backbone if args.unfreeze_backbone else config["model"].get("freeze_backbone", True),
+        use_goal_conditioning=config["model"].get("use_goal_conditioning", True),
+        use_contact_conditioning=config["model"].get("use_contact_conditioning", True),
+        goal_dim=config["model"].get("goal_dim", 3),
+        contact_dim=config["model"].get("contact_dim", 2),
     ).to(device)
+
+    # Optional warmstart from prior checkpoint
+    if args.resume:
+        resume_path = args.resume
+        if not os.path.isabs(resume_path):
+            resume_path = os.path.join(ROOT_DIR, resume_path)
+        if os.path.exists(resume_path):
+            print(f"  Warmstarting weights from checkpoint: {resume_path}")
+            model.load_pretrained_pure_act(resume_path)
+
+    if args.unfreeze_backbone:
+        print("  Fine-tuning visual backbones: Unfreezing layer4 + proj across all camera heads...")
+        for name, p in model.named_parameters():
+            if "backbones" in name:
+                if any(k in name for k in ["layer4", "proj"]):
+                    p.requires_grad_(True)
+                else:
+                    p.requires_grad_(False)
 
     total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"  Trainable Parameters: {total_params:,} ({total_params * 4 / (1024**2):.2f} MB)")
 
     # 3. Optimizers & Schedulers
     # Differential learning rates: backbones get lower LR
-    backbone_params = []
-    other_params = []
-    for name, param in model.named_parameters():
-        if "backbones" in name:
-            backbone_params.append(param)
-        else:
-            other_params.append(param)
+    backbone_params = [p for name, p in model.named_parameters() if "backbones" in name and p.requires_grad]
+    other_params = [p for name, p in model.named_parameters() if "backbones" not in name and p.requires_grad]
+
+    param_groups = []
+    if len(backbone_params) > 0:
+        param_groups.append({"params": backbone_params, "lr": config["training"]["lr_backbone"]})
+    if len(other_params) > 0:
+        param_groups.append({"params": other_params, "lr": config["training"]["lr_transformer"]})
 
     optimizer = torch.optim.AdamW(
-        [
-            {"params": backbone_params, "lr": config["training"]["lr_backbone"]},
-            {"params": other_params, "lr": config["training"]["lr_transformer"]},
-        ],
+        param_groups,
         weight_decay=config["training"]["weight_decay"],
     )
 
@@ -218,11 +243,20 @@ def train_act():
         for batch in train_loader:
             images = {k: v.to(device) for k, v in batch["images"].items()}
             qpos = batch["qpos"].to(device)
+            target_pos = batch["target_pos"].to(device) if "target_pos" in batch else None
+            contact_states = batch["contact_states"].to(device) if "contact_states" in batch else None
             actions = batch["actions"].to(device)
             is_pad = batch["is_pad"].to(device)
 
             optimizer.zero_grad()
-            out = model(images=images, qpos=qpos, actions=actions, is_pad=is_pad)
+            out = model(
+                images=images,
+                qpos=qpos,
+                target_pos=target_pos,
+                contact_states=contact_states,
+                actions=actions,
+                is_pad=is_pad,
+            )
 
             total_loss = out["total_loss"]
             total_loss.backward()
@@ -247,10 +281,19 @@ def train_act():
             for batch in val_loader:
                 images = {k: v.to(device) for k, v in batch["images"].items()}
                 qpos = batch["qpos"].to(device)
+                target_pos = batch["target_pos"].to(device) if "target_pos" in batch else None
+                contact_states = batch["contact_states"].to(device) if "contact_states" in batch else None
                 actions = batch["actions"].to(device)
                 is_pad = batch["is_pad"].to(device)
 
-                out = model(images=images, qpos=qpos, actions=actions, is_pad=is_pad)
+                out = model(
+                    images=images,
+                    qpos=qpos,
+                    target_pos=target_pos,
+                    contact_states=contact_states,
+                    actions=actions,
+                    is_pad=is_pad,
+                )
                 val_tot_loss += out["total_loss"].item()
                 val_l1_loss += out["l1_loss"].item()
                 val_kl_loss += out["kl_loss"].item()
@@ -283,7 +326,7 @@ def train_act():
         # Save Best Model Checkpoint
         if avg_val_tot < best_val_loss:
             best_val_loss = avg_val_tot
-            best_ckpt_path = os.path.join(checkpoint_dir, "best_model.pt")
+            best_ckpt_path = os.path.join(checkpoint_dir, args.output_name)
             torch.save(
                 {
                     "epoch": epoch,
@@ -297,7 +340,8 @@ def train_act():
 
         # Periodic checkpoint
         if epoch % config["training"]["save_every"] == 0:
-            ckpt_path = os.path.join(checkpoint_dir, f"act_epoch_{epoch:03d}.pt")
+            prefix = "act_pure_epoch_" if "pure" in args.output_name else ("act_random_epoch_" if "random" in args.output_name else "act_epoch_")
+            ckpt_path = os.path.join(checkpoint_dir, f"{prefix}{epoch:03d}.pt")
             torch.save(
                 {
                     "epoch": epoch,
@@ -312,10 +356,10 @@ def train_act():
     print("-" * len(header))
     print(f"\nTraining Complete in {total_time:.2f}s ({total_time/60:.2f}m)!")
     print(f"Best Validation Loss: {best_val_loss:.4f}")
-    print(f"Best Model Checkpoint: {os.path.join(checkpoint_dir, 'best_model.pt')}")
+    print(f"Best Model Checkpoint: {os.path.join(checkpoint_dir, args.output_name)}")
 
     # Save training history JSON
-    history_path = os.path.join(checkpoint_dir, "training_history.json")
+    history_path = os.path.join(checkpoint_dir, args.history_name)
     with open(history_path, "w") as f:
         json.dump(history, f, indent=2)
     print(f"Saved Training History Telemetry to: {history_path}")

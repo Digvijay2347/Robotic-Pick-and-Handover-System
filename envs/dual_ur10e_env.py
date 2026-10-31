@@ -128,6 +128,19 @@ class DualUR10eHandoverEnv(gym.Env):
         qpos_space = spaces.Box(low=qpos_low, high=qpos_high, shape=(14,), dtype=np.float64)
         qvel_space = spaces.Box(low=qvel_low, high=qvel_high, shape=(14,), dtype=np.float64)
 
+        target_pos_space = spaces.Box(
+            low=np.array([-2.0, -2.0, 0.0], dtype=np.float32),
+            high=np.array([2.0, 2.0, 2.5], dtype=np.float32),
+            shape=(3,),
+            dtype=np.float32,
+        )
+        contact_states_space = spaces.Box(
+            low=0.0,
+            high=1.0,
+            shape=(2,),
+            dtype=np.float32,
+        )
+
         if self.obs_type == "pixels":
             image_spaces = spaces.Dict({
                 "top": spaces.Box(low=0, high=255, shape=(480, 640, 3), dtype=np.uint8),
@@ -137,6 +150,8 @@ class DualUR10eHandoverEnv(gym.Env):
             self.observation_space = spaces.Dict({
                 "qpos": qpos_space,
                 "qvel": qvel_space,
+                "target_pos": target_pos_space,
+                "contact_states": contact_states_space,
                 "images": image_spaces,
             })
         else:
@@ -145,7 +160,8 @@ class DualUR10eHandoverEnv(gym.Env):
             self.observation_space = spaces.Dict({
                 "qpos": qpos_space,
                 "qvel": qvel_space,
-                "target_pos": spaces.Box(low=spatial_low, high=spatial_high, shape=(3,), dtype=np.float64),
+                "target_pos": target_pos_space,
+                "contact_states": contact_states_space,
                 "ee1_pos": spaces.Box(low=spatial_low, high=spatial_high, shape=(3,), dtype=np.float64),
                 "ee2_pos": spaces.Box(low=spatial_low, high=spatial_high, shape=(3,), dtype=np.float64),
             })
@@ -206,25 +222,32 @@ class DualUR10eHandoverEnv(gym.Env):
         }
 
     def _get_obs(self, render_images: bool = True) -> Dict[str, Any]:
-        """Constructs and returns observation dictionary conforming to ALOHA standard."""
+        """Constructs and returns observation dictionary conforming to ALOHA standard with goal & contact state."""
         qpos = self._get_qpos_14d()
         qvel = self._get_qvel_14d()
+        box_pos = self.data.xpos[self.target_body_id].astype(np.float32).copy()
+
+        is_held1, _ = self.controller.check_grasp(1, self.target_name, min_normal_force=1.0)
+        is_held2, _ = self.controller.check_grasp(2, self.target_name, min_normal_force=1.0)
+        contact_states = np.array([float(is_held1), float(is_held2)], dtype=np.float32)
 
         if self.obs_type == "pixels":
             images = self._render_camera_frames() if render_images else None
             return {
                 "qpos": qpos,
                 "qvel": qvel,
+                "target_pos": box_pos,
+                "contact_states": contact_states,
                 "images": images,
             }
         else:
             ee1_pos, _ = self.controller.get_ee_pose(1)
             ee2_pos, _ = self.controller.get_ee_pose(2)
-            box_pos = self.data.xpos[self.target_body_id].copy()
             return {
                 "qpos": qpos,
                 "qvel": qvel,
                 "target_pos": box_pos,
+                "contact_states": contact_states,
                 "ee1_pos": ee1_pos,
                 "ee2_pos": ee2_pos,
             }

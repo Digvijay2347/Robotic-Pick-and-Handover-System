@@ -67,11 +67,11 @@
       <default class="grip_collision">
         <geom type="mesh" group="3"/>
         <default class="pad_box1">
-          <geom mass="0" type="box" pos="0 -0.0026 0.028125" size="0.011 0.004 0.009375" friction="1.2 0.01 0.0002"
+          <geom mass="0" type="box" pos="0 -0.0026 0.028125" size="0.011 0.004 0.009375" friction="2.5 0.2 0.01"
             solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.55 0.55 0.55 1"/>
         </default>
         <default class="pad_box2">
-          <geom mass="0" type="box" pos="0 -0.0026 0.009375" size="0.011 0.004 0.009375" friction="1.1 0.01 0.0002"
+          <geom mass="0" type="box" pos="0 -0.0026 0.009375" size="0.011 0.004 0.009375" friction="2.5 0.2 0.01"
             solimp="0.95 0.99 0.001" solref="0.004 1" priority="1" rgba="0.45 0.45 0.45 1"/>
         </default>
       </default>
@@ -519,7 +519,7 @@
     <general class="size2" name="arm1_j4_wrist2" joint="arm1_wrist_2_joint"/>
     <general class="size2" name="arm1_j5_wrist3" joint="arm1_wrist_3_joint"/>
     <!-- Arm 1 2F-85 Gripper -->
-    <general class="2f85" name="arm1_gripper" tendon="arm1_split" forcerange="-15 15" ctrlrange="0 255"
+    <general class="2f85" name="arm1_gripper" tendon="arm1_split" forcerange="-100 100" ctrlrange="0 255"
       gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
 
     <!-- Arm 2 UR10e: 6 Joints -->
@@ -530,7 +530,7 @@
     <general class="size2" name="arm2_j4_wrist2" joint="arm2_wrist_2_joint"/>
     <general class="size2" name="arm2_j5_wrist3" joint="arm2_wrist_3_joint"/>
     <!-- Arm 2 2F-85 Gripper -->
-    <general class="2f85" name="arm2_gripper" tendon="arm2_split" forcerange="-15 15" ctrlrange="0 255"
+    <general class="2f85" name="arm2_gripper" tendon="arm2_split" forcerange="-100 100" ctrlrange="0 255"
       gainprm="0.3137255 0 0" biasprm="0 -100 -10"/>
   </actuator>
 

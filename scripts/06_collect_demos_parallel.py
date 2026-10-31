@@ -148,7 +148,7 @@ def _worker_collection_task(
                 pcd = capture_scene_pointcloud(model, data)
                 segmenter = SceneSegmenter()
                 clusters = segmenter.segment_objects(pcd)
-                target = segmenter.find_target(clusters, color_hint="red")
+                target = segmenter.find_target(clusters, expected_pos=np.array([0.45, 1.05, 0.90]), color_hint="red")
 
                 if target is None:
                     status_queue.put({
@@ -162,7 +162,7 @@ def _worker_collection_task(
 
                 planner = GeometricGraspPlanner()
                 raw_cands = planner.plan_grasps(target.pcd)
-                gfilter = GraspFilter(model, data, arm_id=1, standoff_dist=0.15)
+                gfilter = GraspFilter(model, data, arm_id=1, standoff_dist=0.10)
                 verified_grasps = gfilter.filter_candidates(raw_cands)
 
                 if not verified_grasps:
@@ -188,7 +188,7 @@ def _worker_collection_task(
                     continue
 
                 # 3. Execution & Recording
-                fsm.transition_to(HandoverState.APPROACH_1, duration=2.5)
+                fsm.transition_to(HandoverState.APPROACH_1, duration=2.0)
                 step_physics = 0
                 last_state = fsm.current_state
                 t_ep_start = time.time()

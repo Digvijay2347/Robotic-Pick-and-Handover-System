@@ -162,6 +162,10 @@ class ACTPolicy(nn.Module):
         dropout: int = 0.1,
         kl_weight: float = 10.0,
         freeze_backbone: bool = True,
+        use_goal_conditioning: bool = True,
+        use_contact_conditioning: bool = True,
+        goal_dim: int = 3,
+        contact_dim: int = 2,
     ):
         super().__init__()
         self.camera_names = camera_names or ["top", "wrist1", "wrist2"]
@@ -172,6 +176,10 @@ class ACTPolicy(nn.Module):
         self.latent_dim = latent_dim
         self.kl_weight = kl_weight
         self.freeze_backbone = freeze_backbone
+        self.use_goal_conditioning = use_goal_conditioning
+        self.use_contact_conditioning = use_contact_conditioning
+        self.goal_dim = goal_dim
+        self.contact_dim = contact_dim
 
         # 1. Visual Backbones (one per camera)
         self.backbones = nn.ModuleDict({
@@ -180,9 +188,27 @@ class ACTPolicy(nn.Module):
         })
         self.num_cam_tokens = len(self.camera_names) * 4  # 3 cams * 4 tokens = 12
 
-        # 2. Proprioception & Latent Projectors
+        # 2. Proprioception, Goal, Contact & Latent Projectors
         self.qpos_proj = nn.Linear(state_dim, d_model)
         self.latent_proj = nn.Linear(latent_dim, d_model)
+
+        if use_goal_conditioning:
+            self.goal_proj = nn.Sequential(
+                nn.Linear(goal_dim, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+            )
+        else:
+            self.goal_proj = None
+
+        if use_contact_conditioning:
+            self.contact_proj = nn.Sequential(
+                nn.Linear(contact_dim, d_model),
+                nn.ReLU(),
+                nn.Linear(d_model, d_model),
+            )
+        else:
+            self.contact_proj = None
 
         # 3. C-VAE Style Encoder (active during training)
         self.cvae = CVAEEncoder(
@@ -194,8 +220,9 @@ class ACTPolicy(nn.Module):
         )
 
         # 4. Transformer Encoder (Fused multimodal context)
-        # Sequence length: 1 (latent) + 1 (qpos) + num_cam_tokens
-        self.total_enc_tokens = 2 + self.num_cam_tokens
+        # Sequence length: 1 (latent) + 1 (qpos) + (1 if goal else 0) + (1 if contact else 0) + num_cam_tokens
+        num_cond_tokens = (1 if use_goal_conditioning else 0) + (1 if use_contact_conditioning else 0)
+        self.total_enc_tokens = 2 + num_cond_tokens + self.num_cam_tokens
         self.enc_pos_emb = nn.Parameter(torch.randn(1, self.total_enc_tokens, d_model) * 0.02)
 
         enc_layer = nn.TransformerEncoderLayer(
@@ -225,10 +252,38 @@ class ACTPolicy(nn.Module):
         # 6. Action Prediction Head
         self.action_head = nn.Linear(d_model, action_dim)
 
+    def load_pretrained_pure_act(self, checkpoint_path: str):
+        """
+        Warm-starts policy weights from a pure ACT model checkpoint, transferring
+        visual backbones, C-VAE, transformer encoder/decoder layers, and action head.
+        """
+        ckpt = torch.load(checkpoint_path, map_location="cpu")
+        state_dict = ckpt["model_state_dict"] if "model_state_dict" in ckpt else ckpt
+
+        filtered_dict = {}
+        for k, v in state_dict.items():
+            if k == "enc_pos_emb":
+                continue
+            if k in self.state_dict() and self.state_dict()[k].shape == v.shape:
+                filtered_dict[k] = v
+
+        msg = self.load_state_dict(filtered_dict, strict=False)
+        print(f"[ACTPolicy] Warm-started {len(filtered_dict)} layers from {checkpoint_path}!")
+        print(f"  Missing (new) keys: {msg.missing_keys}")
+
+        if "enc_pos_emb" in state_dict and state_dict["enc_pos_emb"].shape[1] == 14 and self.total_enc_tokens == 16:
+            with torch.no_grad():
+                old_emb = state_dict["enc_pos_emb"]
+                self.enc_pos_emb.data[:, 0:2, :] = old_emb[:, 0:2, :]
+                self.enc_pos_emb.data[:, 4:16, :] = old_emb[:, 2:14, :]
+            print("  [ACTPolicy] Successfully transferred positional embeddings into 16-token layout!")
+
     def forward(
         self,
         images: Dict[str, torch.Tensor],
         qpos: torch.Tensor,
+        target_pos: Optional[torch.Tensor] = None,
+        contact_states: Optional[torch.Tensor] = None,
         actions: Optional[torch.Tensor] = None,
         is_pad: Optional[torch.Tensor] = None,
     ) -> Dict[str, torch.Tensor]:
@@ -238,26 +293,20 @@ class ACTPolicy(nn.Module):
         Args:
             images: Dict of camera tensors (B, 3, H, W)
             qpos: Joint proprioception (B, 14)
+            target_pos: Optional 3D centroid coordinates (B, 3)
+            contact_states: Optional binary contact states (B, 2)
             actions: Optional target action chunk (B, K, 14) for C-VAE training
             is_pad: Optional padding mask (B, K)
 
         Returns:
-            Dict containing:
-                "pred_actions": (B, K, 14)
-                "mu": Latent mean (B, latent_dim) or None
-                "logvar": Latent logvar (B, latent_dim) or None
-                "total_loss": Scalar loss if actions provided
-                "l1_loss": Scalar L1 action loss if actions provided
-                "kl_loss": Scalar KL divergence loss if actions provided
+            Dict containing predicted actions, latent stats, and computed losses.
         """
         b = qpos.shape[0]
 
         # 1. Obtain Latent style z
         if actions is not None:
-            # Training mode: sample z from C-VAE encoder
             z, mu, logvar = self.cvae(actions, qpos)
         else:
-            # Inference mode: set z to mean of prior (zeros)
             z = torch.zeros(b, self.latent_dim, device=qpos.device, dtype=qpos.dtype)
             mu, logvar = None, None
 
@@ -269,13 +318,28 @@ class ACTPolicy(nn.Module):
             cam_token_list.append(cam_toks)
         visual_tokens = torch.cat(cam_token_list, dim=1)  # (B, 12, d_model)
 
-        # 3. Project state and latent
+        # 3. Project state, goal, contact & latent
         qpos_token = self.qpos_proj(qpos).unsqueeze(1)    # (B, 1, d_model)
         latent_token = self.latent_proj(z).unsqueeze(1)   # (B, 1, d_model)
 
+        tokens_list = [latent_token, qpos_token]
+        if self.use_goal_conditioning and self.goal_proj is not None:
+            if target_pos is None:
+                target_pos = torch.zeros(b, self.goal_dim, device=qpos.device, dtype=qpos.dtype)
+            goal_token = self.goal_proj(target_pos).unsqueeze(1)
+            tokens_list.append(goal_token)
+
+        if self.use_contact_conditioning and self.contact_proj is not None:
+            if contact_states is None:
+                contact_states = torch.zeros(b, self.contact_dim, device=qpos.device, dtype=qpos.dtype)
+            contact_token = self.contact_proj(contact_states).unsqueeze(1)
+            tokens_list.append(contact_token)
+
+        tokens_list.append(visual_tokens)
+
         # 4. Formulate Encoder Input Sequence
-        enc_seq = torch.cat([latent_token, qpos_token, visual_tokens], dim=1)  # (B, 14, d_model)
-        enc_seq = enc_seq + self.enc_pos_emb
+        enc_seq = torch.cat(tokens_list, dim=1)
+        enc_seq = enc_seq + self.enc_pos_emb[:, :enc_seq.shape[1], :]
 
         # Pass through Transformer Encoder
         memory = self.transformer_encoder(enc_seq)  # (B, 14, d_model)
@@ -332,8 +396,20 @@ class ACTPolicy(nn.Module):
         }
 
     @torch.no_grad()
-    def predict_action_chunk(self, images: Dict[str, torch.Tensor], qpos: torch.Tensor) -> torch.Tensor:
+    def predict_action_chunk(
+        self,
+        images: Dict[str, torch.Tensor],
+        qpos: torch.Tensor,
+        target_pos: Optional[torch.Tensor] = None,
+        contact_states: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """Inference helper returning raw predicted action chunk (B, K, 14)."""
         self.eval()
-        res = self.forward(images=images, qpos=qpos)
+        res = self.forward(
+            images=images,
+            qpos=qpos,
+            target_pos=target_pos,
+            contact_states=contact_states,
+        )
         return res["pred_actions"]
+

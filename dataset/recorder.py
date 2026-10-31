@@ -62,6 +62,8 @@ class EpisodeRecorder:
         """Resets the temporary episode buffer."""
         self._qpos: List[np.ndarray] = []
         self._qvel: List[np.ndarray] = []
+        self._target_pos: List[np.ndarray] = []
+        self._contact_states: List[np.ndarray] = []
         self._actions: List[np.ndarray] = []
         self._rewards: List[float] = []
         self._terminals: List[bool] = []
@@ -82,7 +84,7 @@ class EpisodeRecorder:
         Buffers one timestep of data from the environment.
 
         Args:
-            obs: Observation dict containing 'qpos' (14,), 'qvel' (14,), and optional 'images'.
+            obs: Observation dict containing 'qpos' (14,), 'qvel' (14,), optional 'target_pos' (3,), 'contact_states' (2,), and optional 'images'.
             action: Applied 14-DOF normalized action command [-1.0, 1.0]^14.
             reward: Scalar step reward.
             done: Termination/truncation flag.
@@ -90,11 +92,15 @@ class EpisodeRecorder:
         """
         self._qpos.append(np.array(obs["qpos"], dtype=np.float64))
         self._qvel.append(np.array(obs["qvel"], dtype=np.float64))
+        if "target_pos" in obs and obs["target_pos"] is not None:
+            self._target_pos.append(np.array(obs["target_pos"], dtype=np.float32))
+        if "contact_states" in obs and obs["contact_states"] is not None:
+            self._contact_states.append(np.array(obs["contact_states"], dtype=np.float32))
         self._actions.append(np.array(action, dtype=np.float32))
         self._rewards.append(float(reward))
         self._terminals.append(bool(done))
 
-        if self.save_images and "images" in obs:
+        if self.save_images and "images" in obs and obs["images"] is not None:
             imgs = obs["images"]
             if "top" in imgs:
                 self._images_top.append(np.array(imgs["top"], dtype=np.uint8))
@@ -135,6 +141,8 @@ class EpisodeRecorder:
         # Convert lists to NumPy arrays
         qpos_arr = np.stack(self._qpos, axis=0)
         qvel_arr = np.stack(self._qvel, axis=0)
+        target_pos_arr = np.stack(self._target_pos, axis=0) if len(self._target_pos) == num_steps else None
+        contact_states_arr = np.stack(self._contact_states, axis=0) if len(self._contact_states) == num_steps else None
         action_arr = np.stack(self._actions, axis=0)
         reward_arr = np.array(self._rewards, dtype=np.float32)
         term_arr = np.array(self._terminals, dtype=bool)
@@ -165,6 +173,10 @@ class EpisodeRecorder:
             obs_grp = f.create_group("observations")
             obs_grp.create_dataset("qpos", data=qpos_arr)
             obs_grp.create_dataset("qvel", data=qvel_arr)
+            if target_pos_arr is not None:
+                obs_grp.create_dataset("target_pos", data=target_pos_arr)
+            if contact_states_arr is not None:
+                obs_grp.create_dataset("contact_states", data=contact_states_arr)
 
             comp_kwargs = {}
             if self.compression:
@@ -197,6 +209,10 @@ class EpisodeRecorder:
             obs_grp = demo_grp.create_group("observations")
             obs_grp.create_dataset("qpos", data=qpos_arr)
             obs_grp.create_dataset("qvel", data=qvel_arr)
+            if target_pos_arr is not None:
+                obs_grp.create_dataset("target_pos", data=target_pos_arr)
+            if contact_states_arr is not None:
+                obs_grp.create_dataset("contact_states", data=contact_states_arr)
 
             if has_images:
                 img_grp = obs_grp.create_group("images")

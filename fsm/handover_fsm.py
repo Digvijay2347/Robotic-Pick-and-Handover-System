@@ -202,8 +202,8 @@ class HandoverFSM:
         mat2_ho = np.column_stack([[0, 0, 1], [0, -1, 0], [1, 0, 0]])
         quat2_ho = R.from_matrix(mat2_ho).as_quat(scalar_first=True)
         pos_ho2 = np.array([self.handover_pos[0], self.handover_pos[1], self.handover_pos[2] - 0.021])
-        pos_standoff_far = pos_ho2 - np.array([0.18, 0.0, 0.0])
-        pos_pre2 = pos_ho2 - np.array([0.07, 0.0, 0.0])
+        pos_standoff_far = pos_ho2 - np.array([0.12, 0.0, 0.0])
+        pos_pre2 = pos_ho2 - np.array([0.06, 0.0, 0.0])
 
         for i, a in enumerate(kin2_k.qpos_addrs):
             data_kin.qpos[a] = kin2_k.q_rest[i]
@@ -251,8 +251,8 @@ class HandoverFSM:
         quat2_ho = R.from_matrix(mat2_ho).as_quat(scalar_first=True)
 
         pos_ho2 = np.array([pos_box[0], pos_box[1], pos_box[2] - 0.021])
-        pos_standoff_far = pos_ho2 - np.array([0.18, 0.0, 0.0])
-        pos_pre2 = pos_ho2 - np.array([0.07, 0.0, 0.0])
+        pos_standoff_far = pos_ho2 - np.array([0.12, 0.0, 0.0])
+        pos_pre2 = pos_ho2 - np.array([0.06, 0.0, 0.0])
 
         data_kin = mujoco.MjData(self.model)
         kin2_kin = RobotKinematics(self.model, data_kin, arm_id=2)
@@ -422,7 +422,9 @@ class HandoverFSM:
         elif self.current_state == HandoverState.GRASP_1:
             q1 = self.hold_arm1
             q2 = self.hold_arm2
-            is_done = t_in_state >= self.stage_duration
+            # Complete immediately once contact is confirmed (f1 >= 15N after 0.15s), max 0.35s
+            is_held1_cur, f1_cur = self.controller.check_grasp(1, self.target_name)
+            is_done = (is_held1_cur and f1_cur >= 15.0 and t_in_state >= 0.15) or (t_in_state >= self.stage_duration)
         elif self.current_state in (
             HandoverState.PRE_HANDOVER_2,
             HandoverState.APPROACH_2,
@@ -432,7 +434,7 @@ class HandoverFSM:
         elif self.current_state == HandoverState.DUAL_GRASP:
             q1 = self.hold_arm1
             q2 = self.hold_arm2
-            # Interlock verification: Require sustained dual custody hold for 50 steps (100 ms)
+            # Interlock verification: Require sustained dual custody hold for 20 steps (40 ms)
             is_held1_cur, f1_cur = self.controller.check_grasp(1, self.target_name)
             is_held2_cur, f2_cur = self.controller.check_grasp(2, self.target_name)
             if is_held1_cur and is_held2_cur and f2_cur >= 15.0:
@@ -441,7 +443,7 @@ class HandoverFSM:
                 self.custody_confirm_counter = 0
 
             # Done when sustained or on max timeout
-            is_done = (self.custody_confirm_counter >= 50 and t_in_state >= 1.2) or (t_in_state >= 3.0)
+            is_done = (self.custody_confirm_counter >= 20 and t_in_state >= 0.35) or (t_in_state >= 1.5)
         elif self.current_state == HandoverState.RELEASE_1:
             q1 = self.hold_arm1
             q2 = self.hold_arm2
@@ -509,18 +511,18 @@ class HandoverFSM:
         # 5. State Transition Logic
         if is_done:
             if self.current_state == HandoverState.APPROACH_1:
-                self.transition_to(HandoverState.GRASP_1, duration=1.0)
+                self.transition_to(HandoverState.GRASP_1, duration=0.35)
 
             elif self.current_state == HandoverState.GRASP_1:
                 if not is_held1:
                     print(f"  [WARN] Shelf grasp contact weak ({f1:.1f} N)!")
-                self.transition_to(HandoverState.LIFT_1, duration=1.5)
+                self.transition_to(HandoverState.LIFT_1, duration=0.8)
 
             elif self.current_state == HandoverState.LIFT_1:
-                self.transition_to(HandoverState.RETRACT_1, duration=2.0)
+                self.transition_to(HandoverState.RETRACT_1, duration=1.0)
 
             elif self.current_state == HandoverState.RETRACT_1:
-                self.transition_to(HandoverState.TRANSFER_1, duration=4.0)
+                self.transition_to(HandoverState.TRANSFER_1, duration=2.5)
 
             elif self.current_state == HandoverState.TRANSFER_1:
                 ok_adapt = self.plan_arm2_adaptive()
@@ -528,13 +530,13 @@ class HandoverFSM:
                     print("  [ERROR] Adaptive Arm 2 handover trajectory resolution failed!")
                     self.transition_to(HandoverState.ERROR_RECOVERY)
                     return self.current_state, True
-                self.transition_to(HandoverState.PRE_HANDOVER_2, duration=3.0)
+                self.transition_to(HandoverState.PRE_HANDOVER_2, duration=2.0)
 
             elif self.current_state == HandoverState.PRE_HANDOVER_2:
-                self.transition_to(HandoverState.APPROACH_2, duration=1.5)
+                self.transition_to(HandoverState.APPROACH_2, duration=1.0)
 
             elif self.current_state == HandoverState.APPROACH_2:
-                self.transition_to(HandoverState.DUAL_GRASP, duration=1.2)
+                self.transition_to(HandoverState.DUAL_GRASP, duration=0.8)
 
             elif self.current_state == HandoverState.DUAL_GRASP:
                 # Closed-Loop Dual Custody Gate: "Never release what is not verified held"
@@ -542,7 +544,7 @@ class HandoverFSM:
                     self.dual_hold_confirmed = True
                     self.telemetry.dual_hold_confirmed = True
                     print(f"  --> [DUAL CUSTODY VERIFIED] Arm 1: {f1:.1f} N | Arm 2: {f2:.1f} N")
-                    self.transition_to(HandoverState.RELEASE_1, duration=1.2)
+                    self.transition_to(HandoverState.RELEASE_1, duration=0.5)
                 else:
                     print(f"  [INTERLOCK ABORT] Arm 2 failed custody verification ({f2:.1f} N)! Retaining Arm 1 hold.")
                     self.transition_to(HandoverState.ERROR_RECOVERY)
@@ -554,16 +556,16 @@ class HandoverFSM:
                     print(f"  [ERROR] Custody lost during transfer release: is_held2={is_held2}, f2={f2:.1f} N!")
                     self.transition_to(HandoverState.ERROR_RECOVERY)
                     return self.current_state, True
-                self.transition_to(HandoverState.RETRACT_CLEAR_1, duration=1.5)
+                self.transition_to(HandoverState.RETRACT_CLEAR_1, duration=1.0)
 
             elif self.current_state == HandoverState.RETRACT_CLEAR_1:
-                self.transition_to(HandoverState.TRANSPORT_2, duration=3.5)
+                self.transition_to(HandoverState.TRANSPORT_2, duration=2.5)
 
             elif self.current_state == HandoverState.TRANSPORT_2:
-                self.transition_to(HandoverState.PLACE_2, duration=1.0)
+                self.transition_to(HandoverState.PLACE_2, duration=0.6)
 
             elif self.current_state == HandoverState.PLACE_2:
-                self.transition_to(HandoverState.RETRACT_2, duration=2.0)
+                self.transition_to(HandoverState.RETRACT_2, duration=1.5)
 
             elif self.current_state == HandoverState.RETRACT_2:
                 self.transition_to(HandoverState.COMPLETED)
@@ -621,7 +623,7 @@ class HandoverFSM:
         pcd = capture_scene_pointcloud(self.model, self.data)
         segmenter = SceneSegmenter()
         clusters = segmenter.segment_objects(pcd)
-        target = segmenter.find_target(clusters, color_hint="red")
+        target = segmenter.find_target(clusters, expected_pos=np.array([0.45, 1.05, 0.90]), color_hint="red")
 
         if target is None:
             print("[FATAL] Perception failed to find target red box!")
@@ -643,8 +645,8 @@ class HandoverFSM:
             milestone_callback("PLAN_GRASP")
 
         planner = GeometricGraspPlanner()
-        raw_cands = planner.plan_grasps(target.pcd)
-        gfilter = GraspFilter(self.model, self.data, arm_id=1, standoff_dist=0.15)
+        raw_cands = planner.plan_grasps(target.pcd, num_candidates=20)
+        gfilter = GraspFilter(self.model, self.data, arm_id=1, standoff_dist=0.10)
         verified_grasps = gfilter.filter_candidates(raw_cands)
 
         if not verified_grasps:

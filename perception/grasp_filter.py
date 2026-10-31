@@ -50,7 +50,7 @@ class GraspFilter:
     def filter_candidates(
         self,
         candidates: List[GraspCandidate],
-        max_candidates_to_eval: int = 10,
+        max_candidates_to_eval: int = 20,
     ) -> List[FilteredGrasp]:
         """
         Evaluates candidate grasps, filtering out unreachable or colliding poses.

@@ -147,24 +147,38 @@ class ACTDataset(Dataset):
                 norm_actions = self.normalize_action(raw_actions)
                 actions_tensor = torch.from_numpy(norm_actions).float()
 
-                # 2. Multi-Camera Image Streams
+                # Target position (3D coordinates normalized around nominal [0.45, 1.05, 0.90])
+                if "observations/target_pos" in grp:
+                    raw_target_pos = grp["observations/target_pos"][:]
+                    norm_target_pos = (raw_target_pos - np.array([0.45, 1.05, 0.90], dtype=np.float32)) / 0.1
+                    target_pos_tensor = torch.from_numpy(norm_target_pos).float()
+                else:
+                    target_pos_tensor = torch.zeros((num_steps, 3), dtype=torch.float32)
+
+                # Contact states ([held_1, held_2] binary in {0.0, 1.0})
+                if "observations/contact_states" in grp:
+                    raw_contact = grp["observations/contact_states"][:]
+                    contact_tensor = torch.from_numpy(raw_contact).float()
+                else:
+                    contact_tensor = torch.zeros((num_steps, 2), dtype=torch.float32)
+
+                # 2. Multi-Camera Image Streams (Stored as compact uint8 to fit perfectly in RAM)
                 cams_tensors = {}
                 has_imgs = "observations/images" in grp
                 for cam_name in self.camera_names:
                     if has_imgs and cam_name in grp["observations/images"]:
                         raw_cams = grp["observations/images"][cam_name][:]  # (N, H, W, 3) uint8
-                        # Convert to torch tensor (N, 3, H, W)
-                        cam_t = torch.from_numpy(raw_cams).permute(0, 3, 1, 2).float() / 255.0
-                        # Batch resize to target size
-                        cam_t = TF.resize(cam_t, list(self.image_size), antialias=True)
-                        # Normalize with ImageNet mean and std
-                        cam_t = TF.normalize(cam_t, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                        cam_t = torch.from_numpy(raw_cams).permute(0, 3, 1, 2)  # (N, 3, H, W) uint8
+                        if cam_t.shape[-2:] != self.image_size:
+                            cam_t = TF.resize(cam_t, list(self.image_size), antialias=True)
                     else:
-                        cam_t = torch.zeros(num_steps, 3, *self.image_size, dtype=torch.float32)
+                        cam_t = torch.zeros(num_steps, 3, *self.image_size, dtype=torch.uint8)
                     cams_tensors[cam_name] = cam_t
 
                 self.preloaded_episodes.append({
                     "qpos": qpos_tensor,
+                    "target_pos": target_pos_tensor,
+                    "contact_states": contact_tensor,
                     "actions": actions_tensor,
                     "images": cams_tensors,
                     "num_steps": num_steps,
@@ -172,7 +186,7 @@ class ACTDataset(Dataset):
 
         dt = time.time() - t0
         mem_mb = sum(
-            ep["qpos"].numel() * 4 + ep["actions"].numel() * 4 + sum(v.numel() * 4 for v in ep["images"].values())
+            ep["qpos"].numel() * 4 + ep["actions"].numel() * 4 + ep["target_pos"].numel() * 4 + ep["contact_states"].numel() * 4 + sum(v.numel() * 1 for v in ep["images"].values())
             for ep in self.preloaded_episodes
         ) / (1024**2)
         print(f"[ACTDataset] Preloading Complete in {dt:.2f}s! Memory footprint: {mem_mb:.2f} MB in RAM.")
@@ -184,9 +198,15 @@ class ACTDataset(Dataset):
         ep_id, t, num_steps = self.samples[idx]
         ep = self.preloaded_episodes[ep_id]
 
-        # 1. Observation at step t
+        # 1. Observation at step t (Normalizing float32 on-the-fly per batch)
         qpos_tensor = ep["qpos"][t]
-        images_dict = {cam: ep["images"][cam][t] for cam in self.camera_names}
+        target_pos_tensor = ep["target_pos"][t]
+        contact_states_tensor = ep["contact_states"][t]
+
+        images_dict = {}
+        for cam in self.camera_names:
+            img_f = ep["images"][cam][t].float() / 255.0
+            images_dict[cam] = TF.normalize(img_f, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
         # 2. Action Chunk [t : t + chunk_size]
         actions_end = min(t + self.chunk_size, num_steps)
@@ -206,6 +226,8 @@ class ACTDataset(Dataset):
         return {
             "images": images_dict,
             "qpos": qpos_tensor,
+            "target_pos": target_pos_tensor,
+            "contact_states": contact_states_tensor,
             "actions": actions_tensor,
             "is_pad": is_pad,
         }

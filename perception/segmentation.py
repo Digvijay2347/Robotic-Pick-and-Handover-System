@@ -185,29 +185,36 @@ class SceneSegmenter:
         for c in clusters:
             r, g, b = c.mean_color
 
-            # Color signature matching
+            # Robust color signature matching
             color_match = False
-            if color_hint == "red" and (r > 0.35 and r > g * 1.5 and r > b * 1.5):
+            if color_hint == "red" and (r > 0.25 and r > g * 1.25 and r > b * 1.25):
                 color_match = True
-            elif color_hint == "green" and (g > 0.30 and g > r * 1.2 and g > b * 1.2):
+            elif color_hint == "green" and (g > 0.25 and g > r * 1.15 and g > b * 1.15):
                 color_match = True
-            elif color_hint == "yellow" and (r > 0.35 and g > 0.30 and b < 0.25):
+            elif color_hint == "yellow" and (r > 0.30 and g > 0.25 and b < 0.25):
                 color_match = True
-            elif color_hint == "blue" and (b > 0.30 and b > r * 1.2):
+            elif color_hint == "blue" and (b > 0.25 and b > r * 1.15):
                 color_match = True
             elif color_hint == "any":
                 color_match = True
 
             dist = np.linalg.norm(c.centroid - expected_pos) if expected_pos is not None else 0.0
 
-            if expected_pos is not None and dist > max_pos_distance:
-                continue
+            # Reject clusters from adjacent compartments (> 15 cm lateral X distance)
+            if expected_pos is not None:
+                if abs(c.centroid[0] - expected_pos[0]) > 0.15:
+                    continue
+                if dist > max_pos_distance:
+                    continue
 
             candidates.append((color_match, -dist, c))
 
         if not candidates:
-            # Fallback to closest cluster if spatial prior was provided
+            # Fallback to closest cluster inside the compartment if spatial prior was provided
             if expected_pos is not None and clusters:
+                comp_clusters = [c for c in clusters if abs(c.centroid[0] - expected_pos[0]) <= 0.18]
+                if comp_clusters:
+                    return min(comp_clusters, key=lambda c: np.linalg.norm(c.centroid - expected_pos))
                 return min(clusters, key=lambda c: np.linalg.norm(c.centroid - expected_pos))
             return clusters[0] if clusters else None
 

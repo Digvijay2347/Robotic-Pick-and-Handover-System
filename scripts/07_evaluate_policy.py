@@ -194,6 +194,10 @@ def main():
         latent_dim=model_cfg.get("latent_dim", 32),
         dropout=0.0,
         freeze_backbone=model_cfg.get("freeze_backbone", True),
+        use_goal_conditioning=model_cfg.get("use_goal_conditioning", True),
+        use_contact_conditioning=model_cfg.get("use_contact_conditioning", True),
+        goal_dim=model_cfg.get("goal_dim", 3),
+        contact_dim=model_cfg.get("contact_dim", 2),
     ).to(device)
 
     model.load_state_dict(ckpt["model_state_dict"])
@@ -223,22 +227,13 @@ def main():
         video_writer = imageio.get_writer(vid_path, fps=50, codec="libx264", quality=8)
         print(f"  Recording rollout to: {vid_path}")
 
-    # Load demonstration trajectory for shelf corridor reference
-    demo_ref_actions = None
-    demos_hdf5 = os.path.join(ROOT_DIR, "data", "handover_demos.hdf5")
-    if os.path.exists(demos_hdf5):
-        import h5py
-        with h5py.File(demos_hdf5, "r") as f:
-            if "data" in f and "demo_0" in f["data"]:
-                demo_ref_actions = f["data/demo_0/action"][:]
-
     # Track trial statistics
     trial_results = []
 
     def run_eval_loop(viewer_handle=None):
         nonlocal video_writer
         for trial_i in range(1, num_episodes + 1):
-            print(f"\n>>> [EVALUATION TRIAL {trial_i}/{num_episodes}] <<<", flush=True)
+            print(f"\n>>> [PURE ACT EVALUATION TRIAL {trial_i}/{num_episodes}] <<<", flush=True)
             obs, info = env.reset()
             ensembler.reset()
 
@@ -250,7 +245,6 @@ def main():
             in_bin_final = False
             inter_coll = False
             shelf_coll = False
-            grasp_settle_steps = 0
 
             step = 0
             cached_chunk = None
@@ -266,6 +260,14 @@ def main():
                 norm_qpos = norm_qpos_fn(raw_qpos)
                 qpos_t = torch.from_numpy(norm_qpos).float().unsqueeze(0).to(device)
 
+                # Goal & Contact conditioning inputs
+                target_pos_raw = obs.get("target_pos", env.data.xpos[env.target_body_id].astype(np.float32).copy())
+                norm_target_pos = (target_pos_raw - np.array([0.45, 1.05, 0.90], dtype=np.float32)) / 0.1
+                target_pos_t = torch.from_numpy(norm_target_pos).float().unsqueeze(0).to(device)
+
+                contact_states_raw = obs.get("contact_states", np.zeros(2, dtype=np.float32))
+                contact_states_t = torch.from_numpy(contact_states_raw).float().unsqueeze(0).to(device)
+
                 # 2. Query Policy (every step / infer_stride for ensembling, or every replan_freq steps)
                 should_query = (step % max(1, args.infer_stride) == 0) if args.temporal_ensemble else (step % args.replan_freq == 0)
                 if should_query:
@@ -275,45 +277,41 @@ def main():
                         images_t = {k: v.to(device) for k, v in images_t.items()}
 
                     with torch.no_grad():
-                        pred_chunk_t = model.predict_action_chunk(images_t, qpos_t)  # (1, K, 14)
+                        pred_chunk_t = model.predict_action_chunk(
+                            images_t,
+                            qpos_t,
+                            target_pos=target_pos_t,
+                            contact_states=contact_states_t,
+                        )  # (1, K, 14)
                         norm_chunk = pred_chunk_t.squeeze(0).cpu().numpy()          # (K, 14)
                         cached_chunk = unnorm_action_fn(norm_chunk)                  # Unnormalized [-1, 1]
 
                     if args.temporal_ensemble:
                         ensembler.add_chunk(cached_chunk, step)
 
-                # 3. Select action to apply
+                # 3. Select action to apply (100% Pure ACT Policy Execution)
                 if args.temporal_ensemble:
                     action_to_apply = ensembler.get_action(step, fallback_chunk=cached_chunk)
                 else:
                     action_idx = min(step % args.replan_freq, chunk_size - 1)
                     action_to_apply = cached_chunk[action_idx].copy()
 
+                # ALOHA standard gripper thresholding:
+                if cached_chunk is not None:
+                    action_to_apply[6] = 0.50 if action_to_apply[6] > 0.0 else -1.0
+                    action_to_apply[13] = 1.00 if action_to_apply[13] > 0.0 else -1.0
+
                 # Contacts and Milestone Tracking
-                is_held1, f1 = env.controller.check_grasp(1, env.target_name)
-                is_held2, f2 = env.controller.check_grasp(2, env.target_name)
+                is_held1, f1 = env.controller.check_grasp(1, env.target_name, min_normal_force=0.5)
+                is_held2, f2 = env.controller.check_grasp(2, env.target_name, min_normal_force=0.5)
                 ee1_pos, _ = env.controller.get_ee_pose(1)
                 ee2_pos, _ = env.controller.get_ee_pose(2)
                 box_pos = env.data.xpos[env.target_body_id]
 
-                if is_held1 and f1 >= 10.0:
+                if is_held1 and f1 >= 1.0 and ee1_pos[2] <= 0.945:
                     arm1_grasped = True
-                if is_held2 and f2 >= 10.0:
+                if is_held2 and f2 >= 1.0:
                     arm2_grasped = True
-
-                if arm1_grasped:
-                    grasp_settle_steps += 1
-
-                # Dynamic Bimanual Handover & Complete Workflow Execution:
-                if arm1_grasped and demo_ref_actions is not None:
-                    # Coordinated multi-stage bimanual handover (lift -> retract -> handover -> bin drop)
-                    s_ref = min(len(demo_ref_actions) - 1, 140 + grasp_settle_steps)
-                    action_to_apply = demo_ref_actions[s_ref].copy()
-                else:
-                    # Autonomous shelf approach driven by trained ACT policy
-                    if cached_chunk is not None:
-                        action_to_apply[6] = 0.50 if cached_chunk[min(step % args.replan_freq, chunk_size - 1), 6] > 0.0 else -1.0
-                    action_to_apply[13] = -1.0
 
                 action_to_apply = np.clip(action_to_apply, -1.0, 1.0)
 
@@ -332,7 +330,7 @@ def main():
 
                 dist1 = float(np.linalg.norm(ee1_pos - box_pos)) * 100.0
                 if step % 25 == 0:
-                    print(f"  Step {step:4d}/{args.max_steps} | EE1: [{ee1_pos[0]:.2f}, {ee1_pos[1]:.2f}, {ee1_pos[2]:.2f}] | EE2: [{ee2_pos[0]:.2f}, {ee2_pos[1]:.2f}, {ee2_pos[2]:.2f}] | Grip1: {action_to_apply[6]:.1f} (f1={f1:3.0f}N) | Grip2: {action_to_apply[13]:.1f} (f2={f2:3.0f}N) | InBin: {env._check_in_bin()}", flush=True)
+                    print(f"  Step {step:4d}/{args.max_steps} | EE1: [{ee1_pos[0]:.2f}, {ee1_pos[1]:.2f}, {ee1_pos[2]:.2f}] | EE2: [{ee2_pos[0]:.2f}, {ee2_pos[1]:.2f}, {ee2_pos[2]:.2f}] | Box: [{box_pos[0]:.2f}, {box_pos[1]:.2f}, {box_pos[2]:.2f}] | Grip1: {action_to_apply[6]:.1f} (f1={f1:3.0f}N) | Grip2: {action_to_apply[13]:.1f} (f2={f2:3.0f}N) | InBin: {env._check_in_bin()}", flush=True)
 
                 # Record composite video frame if requested
                 if video_writer is not None:

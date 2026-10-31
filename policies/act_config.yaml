@@ -25,9 +25,13 @@ model:
   backbone: "resnet18"    # Pretrained visual backbone
   freeze_backbone: true   # Freeze pretrained ResNet-18 weights for fast training
   dropout: 0.1
+  use_goal_conditioning: true     # 3D centroid token [X_c, Y_c, Z_c]
+  use_contact_conditioning: true  # Physical contact token [held_1, held_2]
+  goal_dim: 3
+  contact_dim: 2
 
 training:
-  batch_size: 16
+  batch_size: 32
   lr_backbone: 1.0e-5     # Low LR for visual feature extractor
   lr_transformer: 1.0e-4  # Standard LR for transformer layers
   weight_decay: 1.0e-4

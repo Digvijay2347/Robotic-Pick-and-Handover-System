@@ -158,13 +158,15 @@ def list_checkpoints() -> Dict[str, Any]:
             size_mb = round(stat.st_size / (1024 * 1024), 2)
             mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
 
-            is_best = (fname == "best_model.pt")
+            is_best = fname in ["best_model.pt", "best_model_random.pt"]
             epoch_val = None
             match = epoch_regex.search(fname)
             if match:
                 epoch_val = int(match.group(1))
             elif is_best:
                 epoch_val = 20  # Best checkpoint corresponds to highest epoch
+
+            arch_name = "ACT Policy (50 Randomized Demos)" if "random" in fname else "ACT (Transformer + C-VAE + ResNet-18)"
 
             checkpoints.append({
                 "filename": fname,
@@ -173,7 +175,7 @@ def list_checkpoints() -> Dict[str, Any]:
                 "modified": mtime,
                 "is_best": is_best,
                 "epoch": epoch_val,
-                "architecture": "ACT (Transformer + C-VAE + ResNet-18)",
+                "architecture": arch_name,
             })
 
     # Sort checkpoints: best first, then by epoch descending
