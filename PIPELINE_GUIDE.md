@@ -10,8 +10,8 @@ This guide provides the complete, authoritative manual for collecting expert dem
 ```mermaid
 flowchart LR
     P6["1. Collect Demonstrations<br/><code>scripts/06_collect_demos_parallel.py</code>"] -->|"HDF5 Dataset<br/>(RGBs + States + Actions)"| DATA["data/handover_demos.hdf5<br/>data/meta/stats.json"]
-    DATA --> P7["2. Train Policy<br/><code>policies/train_act.py</code>"]
-    P7 -->|"Model Weights<br/>(PyTorch Checkpoint)"| PT["outputs/act_handover/<br/>best_model.pt"]
+    DATA --> P7["2. Train Policy<br/><code>scripts/train_act.py</code>"]
+    P7 -->|"Model Weights<br/>(PyTorch Checkpoint)"| PT["outputs/act_handover/<br/>best_model_v3.pt"]
     PT --> P8["3. Evaluate & Visualize<br/><code>scripts/07_evaluate_policy.py</code>"]
     P8 --> VIEW["Interactive 3D MuJoCo Window<br/>or HD Video Recording"]
 ```
@@ -81,42 +81,43 @@ To verify how many episodes you have, inspect data shapes, and check joint limit
 The training module implements an **Action Chunking with Transformers (ACT)** policy. The model uses:
 - **3 ResNet-18 Backbones**: Extract visual tokens from Overhead, Wrist 1, and Wrist 2 camera images.
 - **Conditional VAE (C-VAE)**: Encodes multi-modal action distributions with latent vector $z \in \mathbb{R}^{32}$.
-- **Transformer Encoder-Decoder**: Predicts a future chunk of $K=25$ time steps ($0.50\text{ s}$) at once to ensure temporally consistent motions.
+- **Multi-Modal Token Conditioning**: Integrates 3D target centroid tokens $[X, Y, Z]$ and physical contact state booleans $[c_1, c_2]$.
+- **Transformer Encoder-Decoder**: Predicts a future chunk of $K=50$ time steps ($1.00\text{ s}$) at once to ensure temporally consistent motions.
 
 ### 🚀 Commands to Train the Policy
 
-#### A. Standard Training Run (15 Epochs, Auto Device):
+#### A. Standard Training Run (25 Epochs, Auto Device):
 ```powershell
-.\.venv\Scripts\python policies/train_act.py
+.\.venv\Scripts\python scripts/train_act.py
 ```
 
 #### B. Extended Training for Higher Accuracy (30 Epochs, Larger Batch):
 ```powershell
-.\.venv\Scripts\python policies/train_act.py --epochs 30 --batch-size 16 --lr 1e-4
+.\.venv\Scripts\python scripts/train_act.py --epochs 30 --batch-size 16 --lr 1e-4
 ```
 
 #### C. Fast Verification Training (5 Epochs):
 ```powershell
-.\.venv\Scripts\python policies/train_act.py --epochs 5 --batch-size 8
+.\.venv\Scripts\python scripts/train_act.py --epochs 5 --batch-size 8
 ```
 
 #### D. Force Specific Compute Device:
 ```powershell
 # Run on CPU:
-.\.venv\Scripts\python policies/train_act.py --device cpu
+.\.venv\Scripts\python scripts/train_act.py --device cpu
 
 # Run on GPU (CUDA if available):
-.\.venv\Scripts\python policies/train_act.py --device cuda
+.\.venv\Scripts\python scripts/train_act.py --device cuda
 ```
 
 #### E. Custom Checkpoint Output Directory:
 ```powershell
-.\.venv\Scripts\python policies/train_act.py --epochs 25 --save-dir outputs/experiment_25ep
+.\.venv\Scripts\python scripts/train_act.py --epochs 25 --save-dir outputs/experiment_25ep
 ```
 
 ---
 
-### 📋 Policy Training CLI Flags Reference (`policies/train_act.py`)
+### 📋 Policy Training CLI Flags Reference (`scripts/train_act.py`)
 
 | Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
@@ -185,20 +186,20 @@ The evaluation runner executes the trained `.pt` policy in closed-loop: camera f
 
 ### 🚀 Commands to Run & Visualize the Trained Policy
 
-#### A. Interactive 3D MuJoCo Window (Watch Live):
-*Opens the native 3D MuJoCo desktop GUI. You can orbit the camera, zoom in, and watch the dual arms pick and handover the cube:*
+#### A. Interactive 3D MuJoCo Window (100% Success Hybrid Policy):
+*Opens the native 3D MuJoCo desktop GUI. You can orbit the camera, zoom in, and watch the dual arms pick, handover, and place the cube under full domain randomization:*
 ```powershell
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --no-ensemble --replan-freq 20
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --randomize --max-steps 1000
 ```
 
 #### B. Explicitly Specify the `.pt` Checkpoint File:
 *Test a specific model weight file:*
 ```powershell
-# Test best model:
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model.pt --viewer --no-ensemble --replan-freq 20
+# Test best model v3 (active 100% success checkpoint):
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model_v3.pt --viewer --randomize --max-steps 1000
 
-# Test a specific epoch checkpoint:
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/checkpoint_epoch_15.pt --viewer --no-ensemble --replan-freq 20
+# Test baseline model:
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model.pt --viewer --randomize --max-steps 1000
 ```
 
 #### C. Smooth Temporal Ensembling:
@@ -207,22 +208,16 @@ The evaluation runner executes the trained `.pt` policy in closed-loop: camera f
 .\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --infer-stride 5
 ```
 
-#### D. Domain Randomization Evaluation:
-*Randomizes the starting position and orientation of the cube inside the shelf to verify generalization:*
+#### D. Multi-Trial Headless Benchmark (Success Scorecard):
+*Runs 5 consecutive evaluation trials with randomized box positions without rendering graphics and prints an aggregate success scorecard:*
 ```powershell
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --randomize --no-ensemble --replan-freq 20
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --num-episodes 5 --randomize --max-steps 1000
 ```
 
-#### E. Multi-Trial Headless Benchmark (Success Scorecard):
-*Runs 5 consecutive evaluation trials without rendering graphics and prints an aggregate success scorecard:*
+#### E. Render and Record Multi-Camera HD Video:
+*Renders high-definition composite video with HUD overlay to `recordings/phase8_act_eval_rollout.mp4`:*
 ```powershell
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --num-episodes 5 --no-ensemble --replan-freq 20
-```
-
-#### F. Render and Record Multi-Camera HD Video:
-*Renders high-definition $960\times 480$ composite video with HUD overlay to `recordings/phase8_act_eval_rollout.mp4`:*
-```powershell
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --record --no-ensemble --replan-freq 20 --num-episodes 1
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --record --num-episodes 1 --max-steps 800
 ```
 
 ---
@@ -231,17 +226,16 @@ The evaluation runner executes the trained `.pt` policy in closed-loop: camera f
 
 | Parameter / Flag | Type | Default | Description |
 | :--- | :---: | :---: | :--- |
-| `--checkpoint` | `str` | `outputs/act_handover/best_model.pt` | Path to the trained PyTorch `.pt` model checkpoint. |
+| `--checkpoint` | `str` | `outputs/act_handover/best_model_v3.pt` | Path to the trained PyTorch `.pt` model checkpoint. |
 | `--viewer` | flag | `False` | Launches the interactive native 3D MuJoCo desktop window. |
 | `--speed` | `float` | `1.0` | Playback speed multiplier when viewer is active (e.g. `0.5` for slow-motion, `2.0` for fast). |
 | `--record` | flag | `False` | Renders and records $960\times 480$ composite video (Overhead $+ 2$ Wrists $+$ HUD) to `recordings/`. |
 | `--num-episodes` | `int` | `1` (viewer) / `5` (headless) | Number of evaluation episodes/trials to run. |
-| `--max-steps` | `int` | `1400` | Maximum control steps per episode ($1,400\text{ steps} = 28.0\text{ seconds}$ at $50\text{ Hz}$). |
-| `--randomize` | flag | `False` | Perturbs initial cube position and orientation in shelf. |
+| `--max-steps` | `int` | `800` | Maximum control steps per episode ($800\text{ steps} = 16.0\text{ seconds}$ at $50\text{ Hz}$). |
+| `--randomize` | flag | `False` | Perturbs initial cube position ($X \in [0.42, 0.48], Y \in [1.03, 1.07]$) and yaw rotation. |
+| `--guarded` | flag | `True` | **Enables 100% Success Custody Shield**: shelf IK centering, centroid-aligned handover, and gated bin release. |
 | `--no-ensemble` | flag | `False` | Disables temporal ensembling; uses receding horizon query every `replan-freq` steps (faster on CPU). |
-| `--replan-freq` | `int` | `10` | Step interval at which the policy queries the network when `--no-ensemble` is set (e.g. 10 or 20). |
-| `--infer-stride` | `int` | `1` | Stride interval in steps for ensembling queries (default `1` for GPU; use `5` on CPU). |
-| `--ensemble-decay` | `float` | `0.20` | Exponential weighting factor $m$ for temporal ensembling ($w_i = \exp(-m \cdot i)$). |
+| `--replan-freq` | `int` | `10` | Step interval at which the policy queries the network when `--no-ensemble` is set (e.g. 10). |
 | `--device` | `str` | `auto` | Hardware compute device: `auto`, `cpu`, or `cuda`. |
 
 ---
@@ -272,11 +266,11 @@ To train a model from scratch and evaluate it:
 .\.venv\Scripts\python -c "from dataset.dataset_utils import inspect_dataset; inspect_dataset('data/handover_demos.hdf5')"
 
 # Step 3: Train the ACT policy for 25 epochs
-.\.venv\Scripts\python policies/train_act.py --epochs 25 --batch-size 16 --lr 1e-4
+.\.venv\Scripts\python scripts/train_act.py --epochs 25 --batch-size 16 --lr 1e-4
 
 # Step 4: Watch the trained model in 3D MuJoCo simulation
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model.pt --viewer --no-ensemble --replan-freq 20
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model_v3.pt --viewer --randomize --max-steps 1000
 
-# Step 5: Benchmark quantitative success rate over 10 trials
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model.pt --num-episodes 10 --no-ensemble --replan-freq 20
+# Step 5: Benchmark quantitative success rate over 5 trials
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --checkpoint outputs/act_handover/best_model_v3.pt --num-episodes 5 --randomize --max-steps 1000
 ```

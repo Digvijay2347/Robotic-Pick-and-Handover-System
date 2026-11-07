@@ -448,3 +448,4 @@ During early trials, Arm 2 consistently held the cube at a fragile, chipped corn
    $$\dot{q}_{\text{avoid}} = \left( I - J^\dagger J \right) \nabla d(\text{obstacle})$$
 3. **Sim-to-Real Transfer**:
    Because `envs/dual_ur10e_env.py` operates via standard joint position commands and standard RGB camera resolutions ($112 \times 112$ or $480 \times 640$), the policy can be loaded directly onto physical UR10e controllers using `ur_rtde` and real RealSense D435 cameras with zero architectural modifications.
+

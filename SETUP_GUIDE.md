@@ -7,18 +7,23 @@
 
 ---
 
-## 1. Quickstart: Run the Autonomous Single-Arm Pick in 3D Viewer
+## 1. Quickstart: Watch Full Autonomous Bimanual Handover in 3D Viewer
 
-To watch Arm 1 autonomously reach into the wall shelf, grasp the red box with its Robotiq 2F-85 gripper, lift it, and extract it into open space in real time:
+To watch the complete autonomous workflow — Arm 1 picking the red cube from the shelf, executing a mid-air handover to Arm 2 with dual-custody verification, and Arm 2 depositing the cube into the sorting bin:
 
-### Interactive 3D Viewer Mode (Watch Live):
+### Interactive 3D Viewer Mode (Watch Live - 100% Success):
 ```powershell
-.\.venv\Scripts\python scripts/02_test_ik_reach.py --viewer
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --randomize --max-steps 1000
 ```
 
-### Fast Headless Benchmark:
+### Multi-Trial Headless Benchmark (Scorecard):
 ```powershell
-.\.venv\Scripts\python scripts/02_test_ik_reach.py
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --num-episodes 5 --randomize --max-steps 1000
+```
+
+### Subsystem Verification (Single-Arm Shelf Pick Only):
+```powershell
+.\.venv\Scripts\python scripts/02_test_ik_reach.py --viewer
 ```
 
 ---

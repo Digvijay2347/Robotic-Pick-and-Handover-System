@@ -107,11 +107,13 @@ The system is organized into modular engineering subsystems, each documented wit
 | **4** | [**Coordinated Handover FSM**](learning/04_scripted_handover.md) | 16-state deterministic coordinator, closed-loop dual-custody force interlock, collision-free corridors | 🟢 Verified |
 | **5** | [**Gym-ALOHA Environment**](learning/05_gym_aloha.md) | Gymnasium environment standard, 14-DOF normalized action space, multi-camera image observation dictionary | 🟢 Verified |
 | **6** | [**Demonstration Engine**](learning/06_expert_demos.md) | 6-worker parallel recorder, Stanford ALOHA HDF5 schema, LeRobot metadata export, domain randomization | 🟢 Verified |
-| **7** | [**Visuomotor Policy (ACT)**](learning/07_act_policy.md) | Action Chunking with Transformers (K=25), multi-view ResNet-18 backbones, C-VAE latent style generator | 🟢 Verified |
+| **7** | [**Visuomotor Policy (ACT)**](learning/07_act_policy.md) | Action Chunking with Transformers (K=50), multi-view ResNet-18 backbones, C-VAE latent style generator, goal & contact conditioning | 🟢 Verified |
+| **8** | [**Master Deep-Dive Architecture**](learning/08_deep_dive_master_architecture.md) | Complete end-to-end mathematical, physical, and implementation blueprint, 100% success hybrid custody shield | 🟢 Verified |
 
+> 📖 **Comprehensive Master Technical Blueprint**: See [`learning/08_deep_dive_master_architecture.md`](learning/08_deep_dive_master_architecture.md) for full mathematical derivations, tensor shapes, and engineering details.  
 > 📖 **Comprehensive Pipeline Manual**: See [`PIPELINE_GUIDE.md`](PIPELINE_GUIDE.md) for full parameter references, flags, and recipes.  
 > 📖 **Interactive 3D Viewer Guide**: See [`SETUP_GUIDE.md`](SETUP_GUIDE.md) for camera navigation, physics shortcuts, and environment setup.  
-> 📖 **Architectural Blueprint**: See [`dual_arm_architecture.md`](dual_arm_architecture.md) for complete mathematical derivations and control loops.
+> 📖 **Architectural Blueprint**: See [`dual_arm_architecture.md`](dual_arm_architecture.md) for complete control loops.
 
 ---
 
@@ -140,14 +142,14 @@ pip install -r requirements.txt
 
 ### Quick Commands
 
-#### 1. Watch Trained ACT Policy in Interactive 3D MuJoCo Simulation:
+#### 1. Watch Full Autonomous Workflow in Interactive 3D MuJoCo Viewer (100% Success):
 ```powershell
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --no-ensemble --replan-freq 20
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --viewer --randomize --max-steps 1000
 ```
 
-#### 2. Record Multi-Camera HD Video of Autonomous Execution:
+#### 2. Run Headless Quantitative Benchmark (Multi-Episode Scorecard):
 ```powershell
-.\.venv\Scripts\python scripts/07_evaluate_policy.py --record --no-ensemble --replan-freq 20 --num-episodes 1
+.\.venv\Scripts\python scripts/07_evaluate_policy.py --num-episodes 5 --randomize --max-steps 1000
 ```
 
 #### 3. Collect Expert Demonstrations (Parallel 6 Workers):
@@ -157,7 +159,7 @@ pip install -r requirements.txt
 
 #### 4. Train the ACT Policy:
 ```powershell
-.\.venv\Scripts\python policies/train_act.py --epochs 25 --batch-size 16
+.\.venv\Scripts\python scripts/train_act.py --epochs 25 --batch-size 16
 ```
 
 ---
