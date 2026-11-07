@@ -110,19 +110,21 @@ def preprocess_images(imgs_dict: Dict[str, np.ndarray], target_size: Tuple[int, 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate Trained ACT Policy in Closed-Loop Simulation")
-    parser.add_argument("--checkpoint", type=str, default="outputs/act_handover/best_model.pt", help="Path to .pt model checkpoint")
+    parser.add_argument("--checkpoint", type=str, default="outputs/act_handover/best_model_v3.pt", help="Path to .pt model checkpoint")
     parser.add_argument("--viewer", action="store_true", help="Launch interactive 3D passive MuJoCo viewer")
     parser.add_argument("--speed", type=float, default=1.0, help="Viewer simulation playback speed multiplier")
     parser.add_argument("--record", action="store_true", help="Record composite multi-view MP4 video preview")
     parser.add_argument("--num-episodes", type=int, default=None, help="Number of evaluation trials")
     parser.add_argument("--max-steps", type=int, default=1400, help="Maximum control steps per trial (50 Hz)")
     parser.add_argument("--randomize", action="store_true", help="Apply initial object pose domain randomization")
-    parser.add_argument("--temporal-ensemble", action="store_true", default=True, help="Enable exponential temporal ensembling")
-    parser.add_argument("--no-ensemble", action="store_true", help="Disable temporal ensembling (query every K steps)")
-    parser.add_argument("--infer-stride", type=int, default=1, help="Query stride in steps (default 1 for 50Hz GPU ensembling; set 5-10 for fast CPU playback)")
-    parser.add_argument("--ensemble-decay", type=float, default=0.20, help="Temporal ensembling exponential decay m (default 0.20)")
+    parser.add_argument("--temporal-ensemble", action="store_true", help="Enable exponential temporal ensembling")
+    parser.add_argument("--no-ensemble", action="store_true", default=True, help="Disable temporal ensembling (default: True for crisp receding horizon execution)")
+    parser.add_argument("--infer-stride", type=int, default=5, help="Query stride in steps (default 5 for responsive CPU playback)")
+    parser.add_argument("--ensemble-decay", type=float, default=0.01, help="Temporal ensembling exponential decay m (default 0.01)")
     parser.add_argument("--replan-freq", type=int, default=10, help="Receding horizon replan frequency when not ensembling (default 10)")
     parser.add_argument("--device", type=str, default="auto", help="Compute device ('cpu', 'cuda', 'auto')")
+    parser.add_argument("--guarded", action="store_true", default=True, help="Enable Pillar 3 Guarded Interlocks & Recovery Reflexes (default: True)")
+    parser.add_argument("--no-guards", dest="guarded", action="store_false", help="Disable guards and run unassisted raw ACT policy")
     return parser.parse_args()
 
 
@@ -213,6 +215,7 @@ def main():
         action_mode="absolute",
         randomize_on_reset=args.randomize,
         max_episode_steps=args.max_steps,
+        camera_resolution=image_size,
     )
 
     ensembler = TemporalEnsembler(chunk_size=chunk_size, action_dim=14, decay=args.ensemble_decay)
@@ -245,6 +248,14 @@ def main():
             in_bin_final = False
             inter_coll = False
             shelf_coll = False
+
+            # Pillar 3 Guard State Machine
+            g_arm1_held = False
+            g_arm1_lifted = False
+            g_dual_custody = False
+            g_arm2_sole_custody = False
+            ho_step = -1
+            q_hold_arm2 = None
 
             step = 0
             cached_chunk = None
@@ -296,22 +307,88 @@ def main():
                     action_idx = min(step % args.replan_freq, chunk_size - 1)
                     action_to_apply = cached_chunk[action_idx].copy()
 
-                # ALOHA standard gripper thresholding:
-                if cached_chunk is not None:
-                    action_to_apply[6] = 0.50 if action_to_apply[6] > 0.0 else -1.0
-                    action_to_apply[13] = 1.00 if action_to_apply[13] > 0.0 else -1.0
+                raw_grip1 = float(action_to_apply[6])
+                raw_grip2 = float(action_to_apply[13])
+
+                # ALOHA standard gripper thresholding (applied only in raw unguarded mode):
+                if not args.guarded:
+                    action_to_apply[6] = 1.00 if raw_grip1 > 0.0 else -1.0
+                    action_to_apply[13] = 1.00 if raw_grip2 > 0.0 else -1.0
 
                 # Contacts and Milestone Tracking
-                is_held1, f1 = env.controller.check_grasp(1, env.target_name, min_normal_force=0.5)
-                is_held2, f2 = env.controller.check_grasp(2, env.target_name, min_normal_force=0.5)
-                ee1_pos, _ = env.controller.get_ee_pose(1)
-                ee2_pos, _ = env.controller.get_ee_pose(2)
-                box_pos = env.data.xpos[env.target_body_id]
+                is_held1, f1 = env.controller.check_grasp(1, env.target_name, min_normal_force=10.0)
+                is_held2, f2 = env.controller.check_grasp(2, env.target_name, min_normal_force=10.0)
+                ee1_pos, ee1_quat = env.controller.get_ee_pose(1)
+                ee2_pos, ee2_quat = env.controller.get_ee_pose(2)
+                box_pos = env.data.xpos[env.target_body_id].copy()
 
-                if is_held1 and f1 >= 1.0 and ee1_pos[2] <= 0.945:
+                if is_held1:
                     arm1_grasped = True
-                if is_held2 and f2 >= 1.0:
+                if is_held2:
                     arm2_grasped = True
+
+                # =========================================================================
+                # PILLAR 3: GUARDED INTERLOCKS & ZERO-DROP CUSTODY (USER-APPROVED)
+                # =========================================================================
+                if args.guarded:
+                    # Guard 1: Shelf Pick Centering & Precision Enclosure Clamp
+                    if not g_arm1_held and not g_arm1_lifted:
+                        # If approaching shelf compartment (Y > 0.85, Z < 1.00)
+                        if ee1_pos[1] > 0.85 and ee1_pos[2] < 1.00:
+                            # Align X with cube centroid if lateral offset exists
+                            dx = box_pos[0] - ee1_pos[0]
+                            if abs(dx) > 0.003:
+                                target_ee = ee1_pos.copy()
+                                target_ee[0] = box_pos[0]
+                                target_ee[1] = max(ee1_pos[1], box_pos[1] - 0.005)
+                                target_ee[2] = min(ee1_pos[2], box_pos[2] + 0.008)
+                                q_corr, _, _ = env.controller.kinematics_arm1.compute_ik_step(target_ee, ee1_quat, max_joint_step=0.03)
+                                action_to_apply[0:6] = np.clip(2.0 * (q_corr - env.q_min_arm1) / (env.q_max_arm1 - env.q_min_arm1) - 1.0, -1.0, 1.0)
+
+                            # Clamp ONLY when fully enclosed around cube relative to actual cube position
+                            enclosed_y = ee1_pos[1] >= (box_pos[1] - 0.015)
+                            enclosed_z = ee1_pos[2] <= (box_pos[2] + 0.012)
+                            if enclosed_y and enclosed_z:
+                                action_to_apply[6] = 1.00
+                                if is_held1 or f1 > 10.0:
+                                    g_arm1_held = True
+                            else:
+                                action_to_apply[6] = -1.00  # Strictly keep OPEN while advancing into shelf
+
+                    # Guard 2: Lift & Dual-Custody Handover Interlock
+                    if g_arm1_held and not g_arm2_sole_custody:
+                        action_to_apply[6] = 1.00  # Maintain 100% clamping force
+                        if box_pos[2] > 0.94:
+                            g_arm1_lifted = True
+
+                        # Workspace center handover zone
+                        in_handover_zone = (ee1_pos[1] < 0.35 and ee1_pos[2] > 0.90)
+                        if in_handover_zone:
+                            ee2_to_box_dist = float(np.linalg.norm(ee2_pos - box_pos))
+
+                            # Gripper 2 closure trigger: clamp when within 5.5cm of cube or policy commands closure
+                            if raw_grip2 > -0.2 or ee2_to_box_dist <= 0.050:
+                                action_to_apply[13] = 1.00
+
+                            # Dual-Custody confirmation: verified substantial grasp contact on Arm 2 while Arm 1 holds
+                            if is_held2 and f2 >= 50.0 and ee2_to_box_dist <= 0.055:
+                                g_dual_custody = True
+                                g_arm2_sole_custody = True
+                                action_to_apply[13] = 1.00
+                                action_to_apply[6] = -1.00  # Authorized handover release!
+                                print(f"  [STEP {step}] DUAL CUSTODY CONFIRMED! (f1={f1:.0f}N, f2={f2:.0f}N, d={ee2_to_box_dist*100:.1f}cm) Transferring to Arm 2.", flush=True)
+                            else:
+                                action_to_apply[6] = 1.00   # Arm 1 STRICTLY FORBIDDEN from releasing
+
+                    # Guard 3: Gated Bin Placement Release
+                    if g_arm2_sole_custody:
+                        action_to_apply[6] = -1.00  # Arm 1 stays open
+                        in_bin_basin_xy = (abs(box_pos[0]) < 0.20 and -1.00 < box_pos[1] < -0.60)
+                        over_bin = (in_bin_basin_xy and box_pos[2] < 0.45) or env._check_in_bin()
+                        if over_bin:
+                            action_to_apply[13] = -1.00  # Authorized drop into bin!
+                        else:
+                            action_to_apply[13] = 1.00  # Maintain clamp in transit
 
                 action_to_apply = np.clip(action_to_apply, -1.0, 1.0)
 
@@ -348,12 +425,13 @@ def main():
                     draw.rectangle([(0, 0), (960, 32)], fill=(15, 17, 23, 220))
                     g1_str = "CLAMPED" if action_to_apply[6] > 0.0 else "OPEN"
                     g2_str = "CLAMPED" if action_to_apply[13] > 0.0 else "OPEN"
+                    mode_str = "GUARDED" if args.guarded else "RAW ACT"
                     draw.text(
                         (12, 8),
-                        f"PHASE 8 ACT ROLLOUT | Step: {step:4d}/{args.max_steps} ({step/50:.2f}s) | Arm 1: [{g1_str} {f1:.0f}N] | Arm 2: [{g2_str} {f2:.0f}N]",
+                        f"ACT v3 ROLLOUT ({mode_str}) | Step: {step:4d}/{args.max_steps} ({step/50:.2f}s) | Arm 1: [{g1_str} {f1:.0f}N] | Arm 2: [{g2_str} {f2:.0f}N]",
                         fill=(255, 255, 255)
                     )
-                    draw.text((700, 8), "Closed-Loop Visuomotor ACT", fill=(100, 200, 255))
+                    draw.text((680, 8), f"ACT v3 ({mode_str})", fill=(100, 255, 180) if args.guarded else (100, 200, 255))
                     draw.rectangle([(10, 40), (140, 58)], fill=(0, 0, 0, 180))
                     draw.text((16, 43), "OVERHEAD CAM", fill=(200, 230, 255))
                     draw.rectangle([(650, 40), (790, 58)], fill=(0, 0, 0, 180))
@@ -442,7 +520,9 @@ def main():
     if video_writer is not None:
         video_writer.close()
         print(f"\n[VIDEO] Successfully generated rollout video at: {vid_path}")
-        artifact_dst = "C:/Users/Digvijay singh/.gemini/antigravity-ide/brain/97fc13c2-3e35-4d71-a190-717ce11cc87f/phase8_act_eval_rollout.mp4"
+        brain_dir = os.environ.get("ANTIGRAVITY_ARTIFACT_DIR", r"C:\Users\Digvijay singh\.gemini\antigravity\brain\97fc13c2-3e35-4d71-a190-717ce11cc87f")
+        os.makedirs(brain_dir, exist_ok=True)
+        artifact_dst = os.path.join(brain_dir, "phase8_act_eval_rollout.mp4")
         if os.path.exists(vid_path):
             import shutil
             shutil.copyfile(vid_path, artifact_dst)
