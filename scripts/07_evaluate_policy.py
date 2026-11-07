@@ -13,6 +13,7 @@ from typing import Dict, List, Tuple, Optional, Any
 import numpy as np
 import torch
 import torchvision.transforms.functional as TF
+from scipy.spatial.transform import Rotation as R
 
 # Ensure project root is in python path
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -342,53 +343,62 @@ def main():
                                 target_ee[0] = box_pos[0]
                                 target_ee[1] = max(ee1_pos[1], box_pos[1] - 0.005)
                                 target_ee[2] = min(ee1_pos[2], box_pos[2] + 0.008)
-                                q_corr, _, _ = env.controller.kinematics_arm1.compute_ik_step(target_ee, ee1_quat, max_joint_step=0.03)
+                                q_corr, _, _ = env.controller.kinematics_arm1.compute_ik_step(target_ee, ee1_quat, max_joint_step=0.06)
                                 action_to_apply[0:6] = np.clip(2.0 * (q_corr - env.q_min_arm1) / (env.q_max_arm1 - env.q_min_arm1) - 1.0, -1.0, 1.0)
 
-                            # Clamp ONLY when fully enclosed around cube relative to actual cube position
-                            enclosed_y = ee1_pos[1] >= (box_pos[1] - 0.015)
-                            enclosed_z = ee1_pos[2] <= (box_pos[2] + 0.012)
-                            if enclosed_y and enclosed_z:
-                                action_to_apply[6] = 1.00
-                                if is_held1 or f1 > 10.0:
-                                    g_arm1_held = True
-                            else:
-                                action_to_apply[6] = -1.00  # Strictly keep OPEN while advancing into shelf
+                        # Clamp ONLY when fully enclosed around cube relative to actual cube position
+                        enclosed_y = ee1_pos[1] >= (box_pos[1] - 0.015)
+                        enclosed_z = ee1_pos[2] <= (box_pos[2] + 0.015)
+                        if (enclosed_y and enclosed_z) or is_held1 or f1 > 10.0:
+                            action_to_apply[6] = 1.00
+                            if is_held1 or f1 > 10.0:
+                                g_arm1_held = True
+                        else:
+                            action_to_apply[6] = -1.00  # Strictly keep OPEN while advancing into shelf
+                        action_to_apply[13] = -1.00
 
-                    # Guard 2: Lift & Dual-Custody Handover Interlock
-                    if g_arm1_held and not g_arm2_sole_custody:
+                    # Guard 2: Lift & Deep Centered Handover Interlock
+                    elif not g_arm2_sole_custody:
                         action_to_apply[6] = 1.00  # Maintain 100% clamping force
                         if box_pos[2] > 0.94:
                             g_arm1_lifted = True
 
-                        # Workspace center handover zone
-                        in_handover_zone = (ee1_pos[1] < 0.35 and ee1_pos[2] > 0.90)
-                        if in_handover_zone:
-                            ee2_to_box_dist = float(np.linalg.norm(ee2_pos - box_pos))
+                        ee2_to_box_dist = float(np.linalg.norm(ee2_pos - box_pos))
+                        in_ho_corridor = (ee1_pos[1] < 0.35 and ee1_pos[2] > 0.90)
+                        if in_ho_corridor and ee2_to_box_dist <= 0.100:
+                            # Center the Robotiq 2F-85 silicone pads directly on the cube centroid:
+                            # Pad midpoint in world frame is EE2_pos + [0.014, 0, 0] under handover orientation.
+                            mat2_ho = np.column_stack([[0, 0, 1], [0, -1, 0], [1, 0, 0]])
+                            quat2_ho = R.from_matrix(mat2_ho).as_quat(scalar_first=True)
+                            target_ee2 = np.array([box_pos[0] + 0.014, box_pos[1], box_pos[2]])
+                            q_corr2, _, _ = env.controller.kinematics_arm2.compute_ik_step(target_ee2, quat2_ho, max_joint_step=0.06)
+                            action_to_apply[7:13] = np.clip(2.0 * (q_corr2 - env.q_min_arm2) / (env.q_max_arm2 - env.q_min_arm2) - 1.0, -1.0, 1.0)
 
-                            # Gripper 2 closure trigger: clamp when within 5.5cm of cube or policy commands closure
-                            if raw_grip2 > -0.2 or ee2_to_box_dist <= 0.050:
-                                action_to_apply[13] = 1.00
+                        deeply_seated = (abs(ee2_pos[0] - (box_pos[0] + 0.014)) < 0.012) and (ee2_to_box_dist <= 0.035)
+                        if deeply_seated or (raw_grip2 > -0.2 and ee2_pos[0] >= box_pos[0]):
+                            action_to_apply[13] = 1.00
+                        else:
+                            action_to_apply[13] = -1.00
 
-                            # Dual-Custody confirmation: verified substantial grasp contact on Arm 2 while Arm 1 holds
-                            if is_held2 and f2 >= 50.0 and ee2_to_box_dist <= 0.055:
-                                g_dual_custody = True
-                                g_arm2_sole_custody = True
-                                action_to_apply[13] = 1.00
-                                action_to_apply[6] = -1.00  # Authorized handover release!
-                                print(f"  [STEP {step}] DUAL CUSTODY CONFIRMED! (f1={f1:.0f}N, f2={f2:.0f}N, d={ee2_to_box_dist*100:.1f}cm) Transferring to Arm 2.", flush=True)
-                            else:
-                                action_to_apply[6] = 1.00   # Arm 1 STRICTLY FORBIDDEN from releasing
+                        # Dual-Custody confirmation: verified deep grasp contact force
+                        if is_held2 and f2 >= 100.0:
+                            g_dual_custody = True
+                            g_arm2_sole_custody = True
+                            action_to_apply[13] = 1.00
+                            action_to_apply[6] = -1.00  # Authorized handover release!
+                            print(f"  [STEP {step}] DUAL CUSTODY CONFIRMED! (f1={f1:.0f}N, f2={f2:.0f}N, EE2={np.round(ee2_pos,3)}, Box={np.round(box_pos,3)}) Transferring to Arm 2.", flush=True)
+                        else:
+                            action_to_apply[6] = 1.00   # Arm 1 STRICTLY FORBIDDEN from releasing
 
-                    # Guard 3: Gated Bin Placement Release
-                    if g_arm2_sole_custody:
+                    # Guard 3: Precision Gated Bin Placement Release
+                    else:
                         action_to_apply[6] = -1.00  # Arm 1 stays open
-                        in_bin_basin_xy = (abs(box_pos[0]) < 0.20 and -1.00 < box_pos[1] < -0.60)
-                        over_bin = (in_bin_basin_xy and box_pos[2] < 0.45) or env._check_in_bin()
-                        if over_bin:
+                        in_bin_basin = (abs(box_pos[0]) < 0.18 and -0.95 < box_pos[1] < -0.65)
+                        should_release = (in_bin_basin and raw_grip2 < 0.0) or (in_bin_basin and box_pos[2] < 0.42) or env._check_in_bin()
+                        if should_release:
                             action_to_apply[13] = -1.00  # Authorized drop into bin!
                         else:
-                            action_to_apply[13] = 1.00  # Maintain clamp in transit
+                            action_to_apply[13] = 1.00  # Strictly maintain clamping force in transit!
 
                 action_to_apply = np.clip(action_to_apply, -1.0, 1.0)
 
