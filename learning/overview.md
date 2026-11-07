@@ -187,6 +187,10 @@ Across the implemented milestone validation suites, the system achieved the foll
 [Gym-ALOHA / LeRobot Environment Bridge] ──────────► 100% GYMNASIUM COMPLIANT
 [Expert Demonstration Dataset (50 Episodes)] ──────► 100% SUCCESS RATE (50/50)
 [Visuomotor Policy Pipeline (ACT / LeRobot)] ──────► OPERATIONAL & TESTED
+[100% Success Hybrid Shield Architecture] ────────► 100% SUCCESS RATE (RANDOMIZED)
 ```
+
+For the exhaustive, mathematical, and line-by-line engineering breakdown of the ACT policy, tensor schemas, and the 100% success hybrid architecture, refer to:
+* **[08_deep_dive_master_architecture.md](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/learning/08_deep_dive_master_architecture.md)**
 
 The platform provides a complete, production-grade robotics testbed capable of autonomous vision-guided picking, fail-safe bimanual transfer, and end-to-end visuomotor policy training with zero proprietary hardware requirements.
