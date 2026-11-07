@@ -13,7 +13,7 @@ dataset:
   step_stride: 2          # Subsamples every 2nd step for efficient training
 
 model:
-  chunk_size: 25          # K=25 future action steps (0.50s at 50 Hz)
+  chunk_size: 50          # K=50 future action steps (1.00s at 50 Hz)
   state_dim: 14           # 14-DOF joint positions (qpos)
   action_dim: 14          # 14-DOF action vector
   d_model: 256            # Transformer hidden dimensionality
@@ -23,7 +23,7 @@ model:
   dim_feedforward: 1024   # Feedforward layer expansion
   latent_dim: 32          # C-VAE style latent dimension z
   backbone: "resnet18"    # Pretrained visual backbone
-  freeze_backbone: true   # Freeze pretrained ResNet-18 weights for fast training
+  freeze_backbone: false  # Fine-tune ResNet-18 with low differential LR for spatial precision
   dropout: 0.1
   use_goal_conditioning: true     # 3D centroid token [X_c, Y_c, Z_c]
   use_contact_conditioning: true  # Physical contact token [held_1, held_2]
@@ -36,7 +36,7 @@ training:
   lr_transformer: 1.0e-4  # Standard LR for transformer layers
   weight_decay: 1.0e-4
   kl_weight: 10.0         # beta weight for KL divergence loss
-  num_epochs: 15
+  num_epochs: 25
   save_every: 5
   checkpoint_dir: "outputs/act_handover"
   seed: 42

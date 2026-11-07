@@ -46,6 +46,7 @@ class HandoverFSM:
         target_name: str = "target_object",
         bin_pos: np.ndarray = np.array([0.0, -0.80, 0.45]),
         handover_pos: np.ndarray = np.array([0.0, 0.10, 1.05]),
+        reset_data: bool = True,
     ):
         self.model = model
         self.data = data
@@ -63,8 +64,8 @@ class HandoverFSM:
         self.handover_pos = handover_pos
         self.dt = model.opt.timestep
 
-        # Ensure model is initialized to keyframe 0 if available
-        if self.model.nkey > 0:
+        # Ensure model is initialized to keyframe 0 if requested
+        if reset_data and self.model.nkey > 0:
             mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
         mujoco.mj_forward(self.model, self.data)
 

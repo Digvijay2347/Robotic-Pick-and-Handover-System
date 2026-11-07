@@ -3,7 +3,7 @@
   "robot_type": "dual_ur10e_robotiq_2f85",
   "fps": 25,
   "total_episodes": 50,
-  "total_frames": 32450,
+  "total_frames": 21200,
   "total_tasks": 1,
   "features": {
     "action": {

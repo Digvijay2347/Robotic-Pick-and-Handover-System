@@ -43,6 +43,7 @@ class DualUR10eHandoverEnv(gym.Env):
         render_mode: Optional[str] = None,
         max_episode_steps: int = 500,
         randomize_on_reset: bool = False,
+        camera_resolution: Tuple[int, int] = (112, 112),
     ):
         super().__init__()
         self.obs_type = obs_type
@@ -51,6 +52,7 @@ class DualUR10eHandoverEnv(gym.Env):
         self.render_mode = render_mode
         self.max_episode_steps = max_episode_steps
         self.randomize_on_reset = randomize_on_reset
+        self.camera_resolution = camera_resolution
 
         # 1. Locate and compile MuJoCo MJCF model
         if model_path is None:
@@ -90,10 +92,10 @@ class DualUR10eHandoverEnv(gym.Env):
         self.grip2_dofadr = self.model.jnt_dofadr[j2]
 
         # Arm joint operational ranges for high-resolution action scaling (ALOHA standard)
-        self.q_min_arm1 = np.array([-0.30, -2.20,  1.50, -5.20, -1.80, -0.20], dtype=np.float64)
-        self.q_max_arm1 = np.array([ 1.60, -0.60,  3.00, -1.30, -1.30,  3.20], dtype=np.float64)
-        self.q_min_arm2 = np.array([-0.30, -2.20,  0.80, -5.40, -1.80, -1.40], dtype=np.float64)
-        self.q_max_arm2 = np.array([ 1.00, -0.10,  3.00, -1.40,  0.30,  0.20], dtype=np.float64)
+        self.q_min_arm1 = np.array([-0.50, -2.30,  1.40, -5.50, -2.20, -3.60], dtype=np.float64)
+        self.q_max_arm1 = np.array([ 1.80, -0.50,  3.20,  1.60,  2.00,  3.60], dtype=np.float64)
+        self.q_min_arm2 = np.array([-0.50, -2.30,  0.70, -5.50, -2.00, -1.50], dtype=np.float64)
+        self.q_max_arm2 = np.array([ 1.20,  0.00,  3.20, -1.20,  0.50,  0.50], dtype=np.float64)
 
         # Home configurations
         self.q_home1 = self.controller.kinematics_arm1.get_joint_positions()
@@ -142,10 +144,11 @@ class DualUR10eHandoverEnv(gym.Env):
         )
 
         if self.obs_type == "pixels":
+            h, w = self.camera_resolution
             image_spaces = spaces.Dict({
-                "top": spaces.Box(low=0, high=255, shape=(480, 640, 3), dtype=np.uint8),
-                "wrist1": spaces.Box(low=0, high=255, shape=(240, 320, 3), dtype=np.uint8),
-                "wrist2": spaces.Box(low=0, high=255, shape=(240, 320, 3), dtype=np.uint8),
+                "top": spaces.Box(low=0, high=255, shape=(h, w, 3), dtype=np.uint8),
+                "wrist1": spaces.Box(low=0, high=255, shape=(h, w, 3), dtype=np.uint8),
+                "wrist2": spaces.Box(low=0, high=255, shape=(h, w, 3), dtype=np.uint8),
             })
             self.observation_space = spaces.Dict({
                 "qpos": qpos_space,
@@ -181,10 +184,11 @@ class DualUR10eHandoverEnv(gym.Env):
 
     def _init_renderers(self):
         """Initializes offscreen renderers for overhead and wrist cameras."""
+        h, w = self.camera_resolution
         if self.renderer_top is None:
-            self.renderer_top = mujoco.Renderer(self.model, height=480, width=640)
+            self.renderer_top = mujoco.Renderer(self.model, height=h, width=w)
         if self.renderer_wrist is None:
-            self.renderer_wrist = mujoco.Renderer(self.model, height=240, width=320)
+            self.renderer_wrist = mujoco.Renderer(self.model, height=h, width=w)
 
     def _get_qpos_14d(self) -> np.ndarray:
         """Extracts 14-DOF joint positions [arm1(6), grip1(1), arm2(6), grip2(1)]."""
@@ -227,8 +231,8 @@ class DualUR10eHandoverEnv(gym.Env):
         qvel = self._get_qvel_14d()
         box_pos = self.data.xpos[self.target_body_id].astype(np.float32).copy()
 
-        is_held1, _ = self.controller.check_grasp(1, self.target_name, min_normal_force=1.0)
-        is_held2, _ = self.controller.check_grasp(2, self.target_name, min_normal_force=1.0)
+        is_held1, _ = self.controller.check_grasp(1, self.target_name, min_normal_force=0.2)
+        is_held2, _ = self.controller.check_grasp(2, self.target_name, min_normal_force=0.2)
         contact_states = np.array([float(is_held1), float(is_held2)], dtype=np.float32)
 
         if self.obs_type == "pixels":

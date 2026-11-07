@@ -129,11 +129,11 @@ def _worker_collection_task(
                 # Domain randomization
                 if randomize and env.target_joint_id != -1:
                     qadr = model.jnt_qposadr[env.target_joint_id]
-                    dx = np.random.uniform(-0.03, 0.03)
-                    dy = np.random.uniform(-0.02, 0.02)
+                    dx = np.random.uniform(-0.025, 0.025)
+                    dy = np.random.uniform(-0.020, 0.020)
                     data.qpos[qadr + 0] = 0.45 + dx
                     data.qpos[qadr + 1] = 1.05 + dy
-                    yaw_deg = np.random.uniform(-25.0, 25.0)
+                    yaw_deg = np.random.uniform(-20.0, 20.0)
                     quat_rand = R.from_euler("z", yaw_deg, degrees=True).as_quat(scalar_first=True)
                     data.qpos[qadr + 3:qadr + 7] = quat_rand
 
@@ -143,8 +143,8 @@ def _worker_collection_task(
 
                 initial_box_pos = data.xpos[env.target_body_id].copy()
 
-                # 2. Perception & Grasp Planning
-                fsm = HandoverFSM(model, data)
+                # 2. Perception & Grasp Planning (preserve randomized object state)
+                fsm = HandoverFSM(model, data, reset_data=False)
                 pcd = capture_scene_pointcloud(model, data)
                 segmenter = SceneSegmenter()
                 clusters = segmenter.segment_objects(pcd)
@@ -161,9 +161,9 @@ def _worker_collection_task(
                     continue
 
                 planner = GeometricGraspPlanner()
-                raw_cands = planner.plan_grasps(target.pcd)
+                raw_cands = planner.plan_grasps(target.pcd, num_candidates=20)
                 gfilter = GraspFilter(model, data, arm_id=1, standoff_dist=0.10)
-                verified_grasps = gfilter.filter_candidates(raw_cands)
+                verified_grasps = gfilter.filter_candidates(raw_cands, max_candidates_to_eval=20)
 
                 if not verified_grasps:
                     status_queue.put({
@@ -215,9 +215,17 @@ def _worker_collection_task(
                         gv2 = float(data.qvel[env.grip2_dofadr])
                         qvel_14d = np.concatenate([v1, [gv1], v2, [gv2]]).astype(np.float64)
 
+
+                        is_held1, _ = fsm.controller.check_grasp(1, fsm.target_name)
+                        is_held2, _ = fsm.controller.check_grasp(2, fsm.target_name)
+                        in_bin = env._check_in_bin()
+                        reward = env._compute_reward(is_held1, is_held2, in_bin)
+
                         obs_dict: Dict[str, Any] = {
                             "qpos": qpos_14d,
                             "qvel": qvel_14d,
+                            "target_pos": data.xpos[env.target_body_id].copy().astype(np.float32),
+                            "contact_states": np.array([float(is_held1), float(is_held2)], dtype=np.float32),
                         }
 
                         if save_images:
@@ -242,10 +250,6 @@ def _worker_collection_task(
                             np.concatenate([act_arm1, [act_grip1], act_arm2, [act_grip2]]), -1.0, 1.0
                         ).astype(np.float32)
 
-                        is_held1, _ = fsm.controller.check_grasp(1, fsm.target_name)
-                        is_held2, _ = fsm.controller.check_grasp(2, fsm.target_name)
-                        in_bin = env._check_in_bin()
-                        reward = env._compute_reward(is_held1, is_held2, in_bin)
 
                         recorder.add_step(
                             obs=obs_dict,
