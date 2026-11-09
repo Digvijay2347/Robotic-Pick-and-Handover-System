@@ -310,10 +310,10 @@ async function selectEpisode(episodeIndex) {
     // Attempt to load associated video preview if available
     try {
         const video = document.getElementById("demoVideoPlayer");
-        if (video) {
-            // Preview video 49 is always available and high quality
-            if (!video.src || video.src.includes("phase6_demo_049.mp4")) {
-                // Already loaded
+        const dropdown = document.getElementById("videoSelectDropdown");
+        if (video && dropdown && dropdown.value) {
+            if (!video.src || video.src === "" || video.src.endsWith("/")) {
+                loadVideo(dropdown.value);
             }
         }
     } catch (e) {}

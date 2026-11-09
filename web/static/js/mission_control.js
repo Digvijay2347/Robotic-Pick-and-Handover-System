@@ -616,7 +616,7 @@ function handleTelemetryPacket(pkt) {
     // 3. Radial Force Gauges & Dual Custody
     const f1 = pkt.arm1 ? pkt.arm1.contact_force : 0.0;
     const f2 = pkt.arm2 ? pkt.arm2.contact_force : 0.0;
-    updateForceGauges(f1, f2, pkt.dual_hold);
+    updateForceGauges(f1, f2, pkt.dual_hold_confirmed ?? pkt.dual_hold);
 
     // 4. 14-DOF Joint Bars & EE Positions
     const q1 = pkt.arm1 ? pkt.arm1.joint_positions : [];
@@ -631,8 +631,9 @@ function handleTelemetryPacket(pkt) {
     if (objPosEl && pkt.target_object_pos) {
         objPosEl.textContent = `[${pkt.target_object_pos.map(p => p.toFixed(2)).join(", ")}]`;
     }
-    if (binPosEl && pkt.bin_pos) {
-        binPosEl.textContent = `[${pkt.bin_pos.map(p => p.toFixed(2)).join(", ")}]`;
+    const binCoords = pkt.target_bin_pos || pkt.bin_pos;
+    if (binPosEl && binCoords) {
+        binPosEl.textContent = `[${binCoords.map(p => p.toFixed(2)).join(", ")}]`;
     }
 }
 
