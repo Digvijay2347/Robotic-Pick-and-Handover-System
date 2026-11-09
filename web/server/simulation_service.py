@@ -29,7 +29,19 @@ from fsm.handover_states import HandoverState, HandoverTelemetry, CycleSummary
 from fsm.handover_fsm import HandoverFSM
 from control.dual_arm_controller import DualArmController
 from control.collision_checker import CollisionChecker
+from envs.dual_ur10e_env import DualUR10eHandoverEnv
 from policies.act_model import ACTPolicy
+
+
+def preprocess_policy_images(imgs_dict: Dict[str, np.ndarray], target_size: Tuple[int, int] = (112, 112)) -> Dict[str, torch.Tensor]:
+    """Preprocesses raw environment RGB frames (uint8) into ImageNet-normalized PyTorch tensors."""
+    tensors = {}
+    for cam_name, img in imgs_dict.items():
+        t = torch.from_numpy(img).permute(2, 0, 1).float() / 255.0
+        t = TF.resize(t, list(target_size), antialias=True)
+        t = TF.normalize(t, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        tensors[cam_name] = t.unsqueeze(0)
+    return tensors
 
 
 class SimulationService:
@@ -54,16 +66,22 @@ class SimulationService:
         if not os.path.exists(self.scene_path):
             raise FileNotFoundError(f"MuJoCo scene XML not found: {self.scene_path}")
 
-        print(f"[SimulationService] Loading MuJoCo scene: {self.scene_path}")
-        self.model = mujoco.MjModel.from_xml_path(self.scene_path)
-        self.data = mujoco.MjData(self.model)
+        print(f"[SimulationService] Initializing DualUR10eHandoverEnv: {self.scene_path}")
+        self.env = DualUR10eHandoverEnv(
+            model_path=self.scene_path,
+            obs_type="pixels",
+            action_mode="absolute",
+            camera_resolution=(112, 112),
+        )
+        self.model = self.env.model
+        self.data = self.env.data
 
         # Thread synchronization lock for MjData and MuJoCo calls
         self._lock = threading.Lock()
 
         # Initialize kinematics, controller, collision checker, and FSM
-        self.controller = DualArmController(self.model, self.data)
-        self.collision_checker = CollisionChecker(self.model, self.data)
+        self.controller = self.env.controller
+        self.collision_checker = self.env.collision_checker
         self.fsm = HandoverFSM(self.model, self.data, controller=self.controller, collision_checker=self.collision_checker)
 
         # Discovered camera mapping (front_cam and iso_cam first)
@@ -108,8 +126,8 @@ class SimulationService:
         self.playback_speed = 1.0  # 1.0x real-time speed
 
         # Target object identification for perturbation
-        self.target_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "target_object")
-        self.target_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "target_object_joint")
+        self.target_body_id = self.env.target_body_id
+        self.target_joint_id = self.env.target_joint_id
 
         # MP4 Video Recording state
         self._is_recording = False
@@ -127,18 +145,6 @@ class SimulationService:
         self.policy_chunk_size = 50
         self.policy_device = None
 
-        # Gripper knuckle joint addresses
-        self.grip1_joint = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "arm1_robotiq_85_left_knuckle_joint")
-        self.grip1_qposadr = self.model.jnt_qposadr[self.grip1_joint] if self.grip1_joint != -1 else 6
-        self.grip2_joint = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "arm2_robotiq_85_left_knuckle_joint")
-        self.grip2_qposadr = self.model.jnt_qposadr[self.grip2_joint] if self.grip2_joint != -1 else 13
-
-        # Joint angle limits for absolute action decoding
-        self.q_min_arm1 = np.array([-2 * np.pi, -np.pi, -np.pi, -2 * np.pi, -2 * np.pi, -2 * np.pi])
-        self.q_max_arm1 = np.array([2 * np.pi, np.pi, np.pi, 2 * np.pi, 2 * np.pi, 2 * np.pi])
-        self.q_min_arm2 = np.array([-2 * np.pi, -np.pi, -np.pi, -2 * np.pi, -2 * np.pi, -2 * np.pi])
-        self.q_max_arm2 = np.array([2 * np.pi, np.pi, np.pi, 2 * np.pi, 2 * np.pi, 2 * np.pi])
-
         # Initial reset and physics settling
         self._reset_internal()
 
@@ -150,13 +156,9 @@ class SimulationService:
     def _reset_internal(self):
         """Internal reset to home keyframe and settle physics."""
         with self._lock:
-            if self.model.nkey > 0:
-                mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
-            mujoco.mj_forward(self.model, self.data)
-            for _ in range(100):
-                mujoco.mj_step(self.model, self.data)
-            self.fsm.q_home1 = self.fsm.kin1.get_joint_positions().copy()
-            self.fsm.q_home2 = self.fsm.kin2.get_joint_positions().copy()
+            self.env.reset()
+            self.fsm.q_home1 = self.env.q_home1.copy()
+            self.fsm.q_home2 = self.env.q_home2.copy()
             self._target_q1 = self.fsm.q_home1.copy()
             self._target_q2 = self.fsm.q_home2.copy()
             self._target_g1 = 0.0
@@ -309,8 +311,8 @@ class SimulationService:
         self.policy = ACTPolicy(
             camera_names=["top", "wrist1", "wrist2"],
             chunk_size=chunk_size,
-            state_dim=14,
-            action_dim=14,
+            state_dim=model_cfg.get("state_dim", 14),
+            action_dim=model_cfg.get("action_dim", 14),
             d_model=model_cfg.get("d_model", 256),
             nhead=model_cfg.get("nheads", 8),
             enc_layers=model_cfg.get("enc_layers", 3),
@@ -352,64 +354,6 @@ class SimulationService:
         self._policy_loaded = True
         print(f"[SimulationService] ACT Policy v3 (K={chunk_size}, Goal+Contact Conditioned) loaded successfully.")
 
-    def _get_14d_qpos(self) -> np.ndarray:
-        """Extracts 14-DOF joint positions [arm1(6), grip1(1), arm2(6), grip2(1)]."""
-        q1 = self.data.qpos[self.controller.kinematics_arm1.qpos_addrs].copy()
-        g1 = float(self.data.qpos[self.grip1_qposadr] / 0.8)
-        q2 = self.data.qpos[self.controller.kinematics_arm2.qpos_addrs].copy()
-        g2 = float(self.data.qpos[self.grip2_qposadr] / 0.8)
-        return np.concatenate([q1, [g1], q2, [g2]], dtype=np.float64)
-
-    def _render_policy_images(self) -> Dict[str, torch.Tensor]:
-        """Renders (112, 112) normalized PyTorch tensors for overhead, wrist1, and wrist2 cameras."""
-        tensors = {}
-        cam_map = {
-            "top": "overhead_cam",
-            "wrist1": "arm1_wrist_cam",
-            "wrist2": "arm2_wrist_cam",
-        }
-        for key, cam_name in cam_map.items():
-            cid = self.camera_ids.get(cam_name, 0)
-            self.renderer.update_scene(self.data, camera=cid)
-            rgb = self.renderer.render()
-            pil_img = Image.fromarray(rgb).resize((112, 112), Image.BILINEAR)
-            t = torch.from_numpy(np.array(pil_img)).permute(2, 0, 1).float() / 255.0
-            t = TF.normalize(t, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            tensors[key] = t.unsqueeze(0).to(self.policy_device)
-        try:
-            import glfw
-            glfw.make_context_current(None)
-        except Exception:
-            pass
-        return tensors
-
-    def _apply_14d_action(self, action: np.ndarray):
-        """Translates normalized 14-DOF action vector into joint target positions and steps physics."""
-        act_arm1 = action[0:6]
-        act_grip1 = action[6]
-        act_arm2 = action[7:13]
-        act_grip2 = action[13]
-
-        target_q1 = self.q_min_arm1 + 0.5 * (act_arm1 + 1.0) * (self.q_max_arm1 - self.q_min_arm1)
-        norm_grip1 = float(np.clip(0.5 * (act_grip1 + 1.0), 0.0, 1.0))
-        target_q2 = self.q_min_arm2 + 0.5 * (act_arm2 + 1.0) * (self.q_max_arm2 - self.q_min_arm2)
-        norm_grip2 = float(np.clip(0.5 * (act_grip2 + 1.0), 0.0, 1.0))
-
-        for _ in range(10):  # 10 physics substeps (500 Hz -> 50 Hz control rate)
-            self.controller.set_arm_joint_targets(1, target_q1)
-            self.controller.set_gripper(1, norm_grip1)
-            self.controller.set_arm_joint_targets(2, target_q2)
-            self.controller.set_gripper(2, norm_grip2)
-            mujoco.mj_step(self.model, self.data)
-
-    def _check_in_bin(self) -> bool:
-        """Determines if the target object is physically resting inside the storage bin."""
-        box_pos = self.data.xpos[self.target_body_id]
-        in_x = abs(box_pos[0]) < 0.20
-        in_y = -1.00 < box_pos[1] < -0.60
-        in_z = box_pos[2] < 0.25
-        return bool(in_x and in_y and in_z)
-
     def start_fsm_cycle(self) -> Dict[str, Any]:
         """Initiates autonomous pick-and-handover execution using the trained ACT Neural Policy."""
         if self.is_running_fsm:
@@ -431,18 +375,15 @@ class SimulationService:
         self._stop_requested = False
         print(f"[SimulationService] Starting ACT Policy Handover Cycle #{self.cycle_count + 1}...")
 
-        # 1. State initialization
+        # 1. State initialization: settle and reset to keyframe 0
         with self._lock:
-            box_pos = self.data.xpos[self.target_body_id].copy()
-            # If box is not on shelf, reset to initial keyframe
-            if box_pos[2] < 0.80 or box_pos[1] < 0.40:
-                if self.model.nkey > 0:
-                    mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
-                mujoco.mj_forward(self.model, self.data)
-                for _ in range(60):
-                    mujoco.mj_step(self.model, self.data)
-                box_pos = self.data.xpos[self.target_body_id].copy()
-
+            obs, _ = self.env.reset()
+            self.fsm.q_home1 = self.env.q_home1.copy()
+            self.fsm.q_home2 = self.env.q_home2.copy()
+            self._target_q1 = self.fsm.q_home1.copy()
+            self._target_q2 = self.fsm.q_home2.copy()
+            self._target_g1 = 0.0
+            self._target_g2 = 0.0
             self.fsm.sim_time = 0.0
             self.fsm.state_start_time = 0.0
             self.fsm.telemetry = HandoverTelemetry()
@@ -458,6 +399,7 @@ class SimulationService:
         replan_freq = 10
         max_steps = 1400
         cached_chunk = None
+        device = self.policy_device
 
         try:
             for step in range(max_steps):
@@ -471,22 +413,22 @@ class SimulationService:
 
                 with self._lock:
                     # 1. Current Observation Extraction
-                    qpos_14d = self._get_14d_qpos()
-                    norm_qpos = self.norm_qpos_fn(qpos_14d)
-                    qpos_t = torch.from_numpy(norm_qpos).float().unsqueeze(0).to(self.policy_device)
+                    raw_qpos = obs["qpos"]
+                    norm_qpos = self.norm_qpos_fn(raw_qpos)
+                    qpos_t = torch.from_numpy(norm_qpos).float().unsqueeze(0).to(device)
 
-                    box_pos = self.data.xpos[self.target_body_id].astype(np.float32).copy()
-                    norm_target = (box_pos - np.array([0.45, 1.05, 0.90], dtype=np.float32)) / 0.1
-                    target_pos_t = torch.from_numpy(norm_target).float().unsqueeze(0).to(self.policy_device)
+                    target_pos_raw = obs.get("target_pos", self.data.xpos[self.target_body_id].astype(np.float32).copy())
+                    norm_target_pos = (target_pos_raw - np.array([0.45, 1.05, 0.90], dtype=np.float32)) / 0.1
+                    target_pos_t = torch.from_numpy(norm_target_pos).float().unsqueeze(0).to(device)
 
-                    is_held1, f1 = self.controller.check_grasp(1, "target_object", min_normal_force=10.0)
-                    is_held2, f2 = self.controller.check_grasp(2, "target_object", min_normal_force=10.0)
-                    contact_states = np.array([float(is_held1), float(is_held2)], dtype=np.float32)
-                    contact_states_t = torch.from_numpy(contact_states).float().unsqueeze(0).to(self.policy_device)
+                    contact_states_raw = obs.get("contact_states", np.zeros(2, dtype=np.float32))
+                    contact_states_t = torch.from_numpy(contact_states_raw).float().unsqueeze(0).to(device)
 
                     # 2. Query ACT Policy every replan_freq steps
                     if step % replan_freq == 0:
-                        images_t = self._render_policy_images()
+                        if obs.get("images") is not None:
+                            images_t = preprocess_policy_images(obs["images"], target_size=(112, 112))
+                            images_t = {k: v.to(device) for k, v in images_t.items()}
                         with torch.no_grad():
                             pred_chunk_t = self.policy.predict_action_chunk(
                                 images_t,
@@ -503,10 +445,15 @@ class SimulationService:
                     raw_grip1 = float(action_to_apply[6])
                     raw_grip2 = float(action_to_apply[13])
 
+                    is_held1, f1 = self.controller.check_grasp(1, "target_object", min_normal_force=10.0)
+                    is_held2, f2 = self.controller.check_grasp(2, "target_object", min_normal_force=10.0)
                     ee1_pos, ee1_quat = self.controller.get_ee_pose(1)
                     ee2_pos, ee2_quat = self.controller.get_ee_pose(2)
+                    box_pos = self.data.xpos[self.target_body_id].copy()
 
-                    # 3. Pillar 3: Guarded Interlocks & Custody Shield
+                    # =========================================================================
+                    # PILLAR 3: GUARDED INTERLOCKS & ZERO-DROP CUSTODY (FROM 07_evaluate_policy)
+                    # =========================================================================
                     # Guard 1: Shelf Pick Centering & Precision Enclosure Clamp
                     if not g_arm1_held and not g_arm1_lifted:
                         if ee1_pos[1] > 0.85 and ee1_pos[2] < 1.00:
@@ -518,16 +465,16 @@ class SimulationService:
                                 target_ee[2] = min(ee1_pos[2], box_pos[2] + 0.008)
                                 q_corr, _, _ = self.controller.kinematics_arm1.compute_ik_step(target_ee, ee1_quat, max_joint_step=0.06)
                                 action_to_apply[0:6] = np.clip(
-                                    2.0 * (q_corr - self.q_min_arm1) / (self.q_max_arm1 - self.q_min_arm1) - 1.0, -1.0, 1.0
+                                    2.0 * (q_corr - self.env.q_min_arm1) / (self.env.q_max_arm1 - self.env.q_min_arm1) - 1.0, -1.0, 1.0
                                 )
 
                         enclosed_y = ee1_pos[1] >= (box_pos[1] - 0.015)
                         enclosed_z = ee1_pos[2] <= (box_pos[2] + 0.015)
                         if (enclosed_y and enclosed_z) or is_held1 or f1 > 10.0:
                             action_to_apply[6] = 1.00
+                            self.fsm.current_state = HandoverState.GRASP_1
                             if is_held1 or f1 > 10.0:
                                 g_arm1_held = True
-                                self.fsm.current_state = HandoverState.GRASP_1
                         else:
                             action_to_apply[6] = -1.00
                             self.fsm.current_state = HandoverState.APPROACH_1
@@ -553,7 +500,7 @@ class SimulationService:
                                 target_ee2 = np.array([box_pos[0] + 0.014, box_pos[1], box_pos[2]])
                                 q_corr2, _, _ = self.controller.kinematics_arm2.compute_ik_step(target_ee2, quat2_ho, max_joint_step=0.06)
                                 action_to_apply[7:13] = np.clip(
-                                    2.0 * (q_corr2 - self.q_min_arm2) / (self.q_max_arm2 - self.q_min_arm2) - 1.0, -1.0, 1.0
+                                    2.0 * (q_corr2 - self.env.q_min_arm2) / (self.env.q_max_arm2 - self.env.q_min_arm2) - 1.0, -1.0, 1.0
                                 )
 
                         deeply_seated = (abs(ee2_pos[0] - (box_pos[0] + 0.014)) < 0.012) and (ee2_to_box_dist <= 0.035)
@@ -562,35 +509,43 @@ class SimulationService:
                         else:
                             action_to_apply[13] = -1.00
 
-                        # Dual-Custody confirmation
+                        # Dual-Custody confirmation: verified deep grasp contact force
                         if is_held2 and f2 >= 100.0:
                             g_dual_custody = True
                             g_arm2_sole_custody = True
                             self.fsm.dual_hold_confirmed = True
                             self.fsm.current_state = HandoverState.DUAL_GRASP
                             action_to_apply[13] = 1.00
-                            action_to_apply[6] = -1.00  # Authorized Handover Release!
-                            print(f"[SimulationService] Step {step}: DUAL CUSTODY CONFIRMED! (f1={f1:.0f}N, f2={f2:.0f}N) Passing custody to Arm 2.")
+                            action_to_apply[6] = -1.00  # Authorized handover release!
+                            print(f"[SimulationService] Step {step}: DUAL CUSTODY CONFIRMED! (f1={f1:.0f}N, f2={f2:.0f}N) Transferring to Arm 2.")
                         else:
-                            action_to_apply[6] = 1.00
+                            action_to_apply[6] = 1.00  # Arm 1 STRICTLY FORBIDDEN from releasing
 
                     # Guard 3: Precision Gated Bin Placement Release
                     else:
                         action_to_apply[6] = -1.00
-                        self.fsm.current_state = HandoverState.TRANSIT_2
+                        self.fsm.current_state = HandoverState.TRANSPORT_2
                         in_bin_basin = (abs(box_pos[0]) < 0.18 and -0.95 < box_pos[1] < -0.65)
-                        in_bin = self._check_in_bin()
+                        in_bin = self.env._check_in_bin()
                         should_release = (in_bin_basin and raw_grip2 < 0.0) or (in_bin_basin and box_pos[2] < 0.42) or in_bin
                         if should_release:
                             action_to_apply[13] = -1.00
-                            self.fsm.current_state = HandoverState.RELEASE_2
+                            self.fsm.current_state = HandoverState.PLACE_2
                         else:
                             action_to_apply[13] = 1.00
 
                     action_to_apply = np.clip(action_to_apply, -1.0, 1.0)
 
-                    # 4. Apply action to physical actuators
-                    self._apply_14d_action(action_to_apply)
+                    # Next step needs images if policy queries next step
+                    next_needs_query = ((step + 1) % replan_freq == 0)
+
+                    # 4. Environment Step (using the verified self.env.step)
+                    obs, reward, terminated, truncated, info = self.env.step(action_to_apply, render_images=next_needs_query)
+                    try:
+                        import glfw
+                        glfw.make_context_current(None)
+                    except Exception:
+                        pass
 
                     # 5. Update Telemetry state
                     self.fsm.sim_time = step * 0.02
@@ -602,11 +557,20 @@ class SimulationService:
                     self.fsm.telemetry.arm2_holding = bool(is_held2)
                     self.fsm.dual_hold_confirmed = bool(g_dual_custody)
 
+                    if step % 25 == 0:
+                        print(
+                            f"[SimService] Step {step:4d}/{max_steps} | EE1: [{ee1_pos[0]:.2f}, {ee1_pos[1]:.2f}, {ee1_pos[2]:.2f}] | "
+                            f"EE2: [{ee2_pos[0]:.2f}, {ee2_pos[1]:.2f}, {ee2_pos[2]:.2f}] | Box: [{box_pos[0]:.2f}, {box_pos[1]:.2f}, {box_pos[2]:.2f}] | "
+                            f"Grip1: {action_to_apply[6]:.1f} (f1={f1:3.0f}N) | Grip2: {action_to_apply[13]:.1f} (f2={f2:3.0f}N) | "
+                            f"InBin: {self.env._check_in_bin()}",
+                            flush=True
+                        )
+
                     # Check if placed in bin
-                    if self._check_in_bin():
+                    if self.env._check_in_bin():
                         print(f"[SimulationService] Step {step}: OBJECT PLACED IN BIN! Finalizing rollout.")
                         for _ in range(40):
-                            self._apply_14d_action(action_to_apply)
+                            self.env.step(action_to_apply, render_images=False)
                         self.fsm.current_state = HandoverState.COMPLETED
                         break
 
@@ -617,14 +581,14 @@ class SimulationService:
                     time.sleep(sleep_t)
 
             with self._lock:
-                self._target_q1 = self.fsm.kin1.get_joint_positions().copy()
-                self._target_q2 = self.fsm.kin2.get_joint_positions().copy()
+                self._target_q1 = self.controller.kinematics_arm1.get_joint_positions().copy()
+                self._target_q2 = self.controller.kinematics_arm2.get_joint_positions().copy()
                 self._target_g1 = self.fsm.target_grip1
                 self._target_g2 = self.fsm.target_grip2
 
             self.cycle_count += 1
             duration = time.time() - t_start_real
-            success = self._check_in_bin()
+            success = self.env._check_in_bin()
             print(f"[SimulationService] ACT Policy Cycle #{self.cycle_count} finished in {duration:.2f}s (Success: {success})!")
             self.last_cycle_summary = {
                 "cycle_index": self.cycle_count,
@@ -886,6 +850,10 @@ class SimulationService:
         with self._lock:
             try:
                 self.renderer.close()
+            except Exception:
+                pass
+            try:
+                self.env.close()
             except Exception:
                 pass
         print("[SimulationService] Shutdown complete.")

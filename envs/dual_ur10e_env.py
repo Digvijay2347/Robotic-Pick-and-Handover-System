@@ -64,6 +64,9 @@ class DualUR10eHandoverEnv(gym.Env):
 
         self.model = mujoco.MjModel.from_xml_path(model_path)
         self.data = mujoco.MjData(self.model)
+        if self.model.nkey > 0:
+            mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
+        mujoco.mj_forward(self.model, self.data)
 
         # 2. Physics & Control Parameters
         self.dt = self.model.opt.timestep            # 0.002 s (500 Hz)
@@ -170,8 +173,7 @@ class DualUR10eHandoverEnv(gym.Env):
             })
 
         # 6. Renderers for Camera Sensors
-        self.renderer_top = None
-        self.renderer_wrist = None
+        self.cam_renderer = None
         self.cam_top_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "overhead_cam")
         self.cam_wrist1_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "arm1_wrist_cam")
         self.cam_wrist2_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, "arm2_wrist_cam")
@@ -183,12 +185,15 @@ class DualUR10eHandoverEnv(gym.Env):
         self.viewer = None
 
     def _init_renderers(self):
-        """Initializes offscreen renderers for overhead and wrist cameras."""
+        """Initializes offscreen renderer for overhead and wrist cameras."""
         h, w = self.camera_resolution
-        if self.renderer_top is None:
-            self.renderer_top = mujoco.Renderer(self.model, height=h, width=w)
-        if self.renderer_wrist is None:
-            self.renderer_wrist = mujoco.Renderer(self.model, height=h, width=w)
+        if self.cam_renderer is None:
+            self.cam_renderer = mujoco.Renderer(self.model, height=h, width=w)
+            try:
+                import glfw
+                glfw.make_context_current(None)
+            except Exception:
+                pass
 
     def _get_qpos_14d(self) -> np.ndarray:
         """Extracts 14-DOF joint positions [arm1(6), grip1(1), arm2(6), grip2(1)]."""
@@ -210,14 +215,20 @@ class DualUR10eHandoverEnv(gym.Env):
         """Renders current scene through overhead and wrist cameras."""
         self._init_renderers()
 
-        self.renderer_top.update_scene(self.data, camera=self.cam_top_id)
-        top_img = self.renderer_top.render().copy()
+        self.cam_renderer.update_scene(self.data, camera=self.cam_top_id)
+        top_img = self.cam_renderer.render().copy()
 
-        self.renderer_wrist.update_scene(self.data, camera=self.cam_wrist1_id)
-        wrist1_img = self.renderer_wrist.render().copy()
+        self.cam_renderer.update_scene(self.data, camera=self.cam_wrist1_id)
+        wrist1_img = self.cam_renderer.render().copy()
 
-        self.renderer_wrist.update_scene(self.data, camera=self.cam_wrist2_id)
-        wrist2_img = self.renderer_wrist.render().copy()
+        self.cam_renderer.update_scene(self.data, camera=self.cam_wrist2_id)
+        wrist2_img = self.cam_renderer.render().copy()
+
+        try:
+            import glfw
+            glfw.make_context_current(None)
+        except Exception:
+            pass
 
         return {
             "top": top_img,
@@ -288,6 +299,9 @@ class DualUR10eHandoverEnv(gym.Env):
         # Step physics forward to settle
         for _ in range(50):
             mujoco.mj_step(self.model, self.data)
+
+        self.q_home1 = self.controller.kinematics_arm1.get_joint_positions().copy()
+        self.q_home2 = self.controller.kinematics_arm2.get_joint_positions().copy()
 
         obs = self._get_obs()
         info = self._get_info()
@@ -422,8 +436,14 @@ class DualUR10eHandoverEnv(gym.Env):
         """Renders the environment."""
         if self.render_mode == "rgb_array":
             self._init_renderers()
-            self.renderer_top.update_scene(self.data, camera=self.cam_top_id)
-            return self.renderer_top.render().copy()
+            self.cam_renderer.update_scene(self.data, camera=self.cam_top_id)
+            img = self.cam_renderer.render().copy()
+            try:
+                import glfw
+                glfw.make_context_current(None)
+            except Exception:
+                pass
+            return img
         elif self.render_mode == "human":
             if self.viewer is None:
                 import mujoco.viewer
@@ -434,12 +454,12 @@ class DualUR10eHandoverEnv(gym.Env):
 
     def close(self):
         """Releases all rendering resources and closes active viewers."""
-        if self.renderer_top is not None:
-            self.renderer_top.close()
-            self.renderer_top = None
-        if self.renderer_wrist is not None:
-            self.renderer_wrist.close()
-            self.renderer_wrist = None
+        if self.cam_renderer is not None:
+            try:
+                self.cam_renderer.close()
+            except Exception:
+                pass
+            self.cam_renderer = None
         if self.viewer is not None:
             self.viewer.close()
             self.viewer = None
