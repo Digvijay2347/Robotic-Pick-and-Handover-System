@@ -2832,17 +2832,81 @@ header {
 
 /* Training Launcher Modal */
 .neural-modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.75);
-    backdrop-filter: blur(6px);
-    z-index: 999;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.8) !important;
+    backdrop-filter: blur(8px) !important;
+    z-index: 100000 !important;
     display: none;
     align-items: center;
     justify-content: center;
+}
+
+/* Toast Notifications */
+.neural-toast-container {
+    position: fixed;
+    top: 72px;
+    right: 24px;
+    z-index: 100001;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.neural-toast {
+    pointer-events: auto;
+    background: #090e18;
+    border: 1px solid rgba(0, 240, 255, 0.5);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 240, 255, 0.25);
+    color: #fff;
+    padding: 12px 20px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    animation: toastSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    max-width: 440px;
+    line-height: 1.4;
+}
+
+.neural-toast.toast-success {
+    border-color: rgba(0, 255, 150, 0.6);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 255, 150, 0.25);
+}
+
+.neural-toast.toast-warn {
+    border-color: rgba(255, 179, 0, 0.6);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 24px rgba(255, 179, 0, 0.25);
+}
+
+.neural-toast.toast-error {
+    border-color: rgba(255, 59, 48, 0.6);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 24px rgba(255, 59, 48, 0.25);
+}
+
+@keyframes toastSlideIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Button Running Active State */
+.btn-running {
+    background: rgba(0, 240, 255, 0.18) !important;
+    border-color: var(--accent-cyan) !important;
+    color: var(--accent-cyan) !important;
+    cursor: wait !important;
+    animation: pulseBorder 1.5s infinite;
+}
+
+@keyframes pulseBorder {
+    0%, 100% { box-shadow: 0 0 8px rgba(0, 240, 255, 0.4); }
+    50% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.85); }
 }
 
 .neural-modal {

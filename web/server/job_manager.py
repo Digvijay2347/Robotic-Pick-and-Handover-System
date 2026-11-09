@@ -142,7 +142,7 @@ class BackgroundJobManager:
             script_path = os.path.join(ROOT_DIR, "scripts", "06_collect_demos_parallel.py")
 
             cmd = [
-                python_exe, script_path,
+                python_exe, "-u", script_path,
                 "--num-episodes", str(config.num_episodes),
                 "--num-workers", str(config.num_workers),
                 "--fps", str(config.fps),
@@ -287,7 +287,7 @@ class BackgroundJobManager:
             script_path = os.path.join(ROOT_DIR, "policies", "train_act.py")
 
             cmd = [
-                python_exe, script_path,
+                python_exe, "-u", script_path,
                 "--epochs", str(config.epochs),
                 "--batch-size", str(config.batch_size),
                 "--lr", str(config.learning_rate),
@@ -418,7 +418,7 @@ class BackgroundJobManager:
             ckpt_path = os.path.join(ROOT_DIR, "outputs", "act_handover", config.checkpoint)
 
             cmd = [
-                python_exe, script_path,
+                python_exe, "-u", script_path,
                 "--checkpoint", ckpt_path,
                 "--num-episodes", str(config.num_episodes),
                 "--max-steps", str(getattr(config, "max_steps", 1000)),

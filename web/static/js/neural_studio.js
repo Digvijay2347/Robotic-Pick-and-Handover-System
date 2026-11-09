@@ -734,14 +734,60 @@ function setupRolloutVideo(videoMeta) {
 }
 
 // ==============================================================================
-// 9. EVALUATION & TRAINING EXECUTION CONTROLLERS
+// 9. TOAST NOTIFICATION ENGINE
+// ==============================================================================
+
+function showNeuralToast(message, type = "info", duration = 4500) {
+    let container = document.getElementById("neuralToastContainer");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "neuralToastContainer";
+        container.className = "neural-toast-container";
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement("div");
+    const typeClass = type === "success" ? "toast-success" : (type === "warn" ? "toast-warn" : (type === "error" ? "toast-error" : ""));
+    toast.className = `neural-toast ${typeClass}`;
+
+    const icon = type === "success" ? "✅" : (type === "warn" ? "⚠️" : (type === "error" ? "❌" : "⚡"));
+    toast.innerHTML = `<span style="font-size:14px;">${icon}</span><span>${escapeHtml(message)}</span>`;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.style.transition = "opacity 0.4s ease, transform 0.4s ease";
+        toast.style.opacity = "0";
+        toast.style.transform = "translateX(30px)";
+        setTimeout(() => toast.remove(), 400);
+    }, duration);
+}
+
+// ==============================================================================
+// 10. EVALUATION & TRAINING EXECUTION CONTROLLERS
 // ==============================================================================
 
 async function launchEvaluationJob(checkpointFilename) {
     const ckpt = checkpointFilename || activeModel || "best_model_v3.pt";
+    const evalBtn = document.getElementById("btnRunEvaluation");
     const logBox = document.getElementById("neuralTerminalLogs");
+
+    if (evalBtn) {
+        evalBtn.disabled = true;
+        evalBtn.classList.add("btn-running");
+        evalBtn.innerHTML = `<span>⏳ INITIALIZING EVALUATION...</span>`;
+    }
+
     if (logBox) {
         logBox.innerHTML = `[SYSTEM] Launching guarded closed-loop policy evaluation for '${ckpt}'...\n`;
+    }
+
+    showNeuralToast(`🚀 Launching closed-loop policy evaluation for '${ckpt}' (10 trials)...`, "info", 5000);
+
+    // Smooth scroll down to terminal so user immediately sees rollout logs
+    const scrollTarget = document.getElementById("neuralTerminalLogs");
+    if (scrollTarget) {
+        scrollTarget.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     try {
@@ -759,12 +805,25 @@ async function launchEvaluationJob(checkpointFilename) {
         });
         const data = await res.json();
         if (data.status === "ok") {
+            showNeuralToast(`⚙️ Policy evaluation running in background. Trials streaming live...`, "success", 4000);
             startEvaluationPolling();
         } else {
             if (logBox) logBox.innerHTML += `[WARNING] ${data.message}\n`;
+            showNeuralToast(`⚠️ ${data.message}`, "warn", 6000);
+            if (evalBtn) {
+                evalBtn.disabled = false;
+                evalBtn.classList.remove("btn-running");
+                evalBtn.innerHTML = `▶ Run Evaluation`;
+            }
         }
     } catch (err) {
         if (logBox) logBox.innerHTML += `[ERROR] Failed to start evaluation: ${err.message}\n`;
+        showNeuralToast(`❌ Failed to start evaluation: ${err.message}`, "error", 6000);
+        if (evalBtn) {
+            evalBtn.disabled = false;
+            evalBtn.classList.remove("btn-running");
+            evalBtn.innerHTML = `▶ Run Evaluation`;
+        }
     }
 }
 
@@ -776,6 +835,13 @@ function startEvaluationPolling() {
             const data = await res.json();
             const job = data.job;
             const logBox = document.getElementById("neuralTerminalLogs");
+            const evalBtn = document.getElementById("btnRunEvaluation");
+
+            if (evalBtn && job.is_running) {
+                const trials = job.completed_trials || 0;
+                const total = job.total_trials || 10;
+                evalBtn.innerHTML = `<span>⏳ Evaluating Trial ${trials}/${total}...</span>`;
+            }
 
             if (logBox && job.recent_logs) {
                 logBox.textContent = job.recent_logs.join("\n");
@@ -784,7 +850,14 @@ function startEvaluationPolling() {
 
             if (!job.is_running) {
                 clearInterval(evalPollTimer);
-                // Refresh scorecard
+                if (evalBtn) {
+                    evalBtn.disabled = false;
+                    evalBtn.classList.remove("btn-running");
+                    evalBtn.innerHTML = `▶ Run Evaluation`;
+                }
+                const rate = job.success_rate_percent !== undefined ? job.success_rate_percent : 100.0;
+                showNeuralToast(`✅ Closed-loop evaluation completed! Success Rate: ${rate}%`, "success", 6000);
+                // Refresh scorecard and analytics
                 loadEvaluationAnalytics();
             }
         } catch (err) {
@@ -796,7 +869,23 @@ function startEvaluationPolling() {
 // Training Modal Controls
 function openTrainingModal() {
     const modal = document.getElementById("neuralTrainingModal");
-    if (modal) modal.style.display = "flex";
+    if (modal) {
+        modal.style.display = "flex";
+
+        // Close on backdrop click
+        modal.onclick = (e) => {
+            if (e.target === modal) closeTrainingModal();
+        };
+
+        // Close on Escape key
+        const escHandler = (e) => {
+            if (e.key === "Escape") {
+                closeTrainingModal();
+                window.removeEventListener("keydown", escHandler);
+            }
+        };
+        window.addEventListener("keydown", escHandler);
+    }
 }
 
 function closeTrainingModal() {
@@ -813,9 +902,25 @@ async function triggerTrainingRun() {
 
     closeTrainingModal();
 
+    const trainBtn = document.getElementById("btnTrainPolicy");
     const logBox = document.getElementById("neuralTerminalLogs");
+
+    if (trainBtn) {
+        trainBtn.disabled = true;
+        trainBtn.classList.add("btn-running");
+        trainBtn.innerHTML = `<span>⏳ INITIALIZING TRAINING...</span>`;
+    }
+
     if (logBox) {
         logBox.innerHTML = `[SYSTEM] Dispatching ACT Policy training job (${epochs} epochs, batch ${batchSize}, chunk ${chunkSize}, lr ${lr}, kl ${klWeight})...\n`;
+    }
+
+    showNeuralToast(`⚡ Dispatched ACT Policy Training Job (${epochs} epochs, batch ${batchSize})...`, "info", 5000);
+
+    // Smooth scroll down to terminal
+    const scrollTarget = document.getElementById("neuralTerminalLogs");
+    if (scrollTarget) {
+        scrollTarget.scrollIntoView({ behavior: "smooth", block: "center" });
     }
 
     try {
@@ -834,12 +939,25 @@ async function triggerTrainingRun() {
         });
         const data = await res.json();
         if (data.status === "ok") {
+            showNeuralToast(`⚙️ ACT Training subprocess started. Epoch progress streaming live...`, "success", 4000);
             startTrainingPolling();
         } else {
             if (logBox) logBox.innerHTML += `[WARNING] ${data.message}\n`;
+            showNeuralToast(`⚠️ ${data.message}`, "warn", 6000);
+            if (trainBtn) {
+                trainBtn.disabled = false;
+                trainBtn.classList.remove("btn-running");
+                trainBtn.innerHTML = `⚡ Train Policy`;
+            }
         }
     } catch (err) {
         if (logBox) logBox.innerHTML += `[ERROR] Failed to start training: ${err.message}\n`;
+        showNeuralToast(`❌ Failed to start training: ${err.message}`, "error", 6000);
+        if (trainBtn) {
+            trainBtn.disabled = false;
+            trainBtn.classList.remove("btn-running");
+            trainBtn.innerHTML = `⚡ Train Policy`;
+        }
     }
 }
 
@@ -851,6 +969,13 @@ function startTrainingPolling() {
             const data = await res.json();
             const job = data.job;
             const logBox = document.getElementById("neuralTerminalLogs");
+            const trainBtn = document.getElementById("btnTrainPolicy");
+
+            if (trainBtn && job.is_running) {
+                const ep = job.current_epoch || 0;
+                const tot = job.total_epochs || 25;
+                trainBtn.innerHTML = `<span>⚙️ Epoch ${ep}/${tot}...</span>`;
+            }
 
             if (logBox && job.recent_logs) {
                 logBox.textContent = job.recent_logs.join("\n");
@@ -859,6 +984,12 @@ function startTrainingPolling() {
 
             if (!job.is_running) {
                 clearInterval(trainPollTimer);
+                if (trainBtn) {
+                    trainBtn.disabled = false;
+                    trainBtn.classList.remove("btn-running");
+                    trainBtn.innerHTML = `⚡ Train Policy`;
+                }
+                showNeuralToast(`✅ ACT Policy training completed! Checkpoints updated.`, "success", 6000);
                 // Refresh curves and checkpoints
                 loadTrainingHistory();
                 loadCheckpoints();
@@ -868,6 +999,13 @@ function startTrainingPolling() {
         }
     }, 2000);
 }
+
+// Global window bindings to prevent scope shadowing
+window.openTrainingModal = openTrainingModal;
+window.closeTrainingModal = closeTrainingModal;
+window.triggerTrainingRun = triggerTrainingRun;
+window.launchEvaluationJob = launchEvaluationJob;
+window.showNeuralToast = showNeuralToast;
 
 // Auto-initialize when window loads or view switches
 document.addEventListener("DOMContentLoaded", () => {

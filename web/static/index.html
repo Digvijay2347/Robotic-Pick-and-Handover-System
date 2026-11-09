@@ -935,10 +935,10 @@
                             </svg>
                             <span id="neuralClock">2026-10-30 19:30:00</span>
                         </div>
-                        <button class="ctrl-btn" onclick="openTrainingModal()" style="font-size:11px;padding:6px 14px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);color:#c084fc;">
+                        <button id="btnTrainPolicy" class="ctrl-btn" onclick="openTrainingModal()" style="font-size:11px;padding:6px 14px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.4);color:#c084fc;">
                             ⚡ Train Policy
                         </button>
-                        <button class="ctrl-btn btn-collect-primary" onclick="launchEvaluationJob()" style="font-size:11px;padding:6px 14px;">
+                        <button id="btnRunEvaluation" class="ctrl-btn btn-collect-primary" onclick="launchEvaluationJob()" style="font-size:11px;padding:6px 14px;">
                             ▶ Run Evaluation
                         </button>
                     </div>
@@ -1192,9 +1192,9 @@
     </div>
 
     <!-- Master Interactive Engines -->
-    <script src="js/mission_control.js"></script>
-    <script src="js/dataset_studio.js"></script>
-    <script src="js/neural_studio.js"></script>
+    <script src="js/mission_control.js?v=4.1"></script>
+    <script src="js/dataset_studio.js?v=4.1"></script>
+    <script src="js/neural_studio.js?v=4.1"></script>
 </body>
 </html>
 
