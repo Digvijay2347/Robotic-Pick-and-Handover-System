@@ -72,6 +72,7 @@ graph TB
 ├── README.md                  # System overview and entry point
 ├── SETUP_GUIDE.md             # Environment setup & interactive 3D viewer guide
 ├── PIPELINE_GUIDE.md          # End-to-end command reference (Data, Training, Eval)
+├── DATASET_STUDIO_GUIDE.md    # Multi-worker curation & telemetry inspector
 ├── dual_arm_architecture.md   # Mathematical & kinematic architectural specification
 ├── learning/                  # In-depth subsystem documentation guides
 │   ├── overview.md            # System architectural whitepaper
@@ -113,6 +114,7 @@ The system is organized into modular engineering subsystems, each documented wit
 > 📖 **Comprehensive Master Technical Blueprint**: See [`learning/08_deep_dive_master_architecture.md`](learning/08_deep_dive_master_architecture.md) for full mathematical derivations, tensor shapes, and engineering details.  
 > 📖 **Comprehensive Pipeline Manual**: See [`PIPELINE_GUIDE.md`](PIPELINE_GUIDE.md) for full parameter references, flags, and recipes.  
 > 📖 **Interactive 3D Viewer Guide**: See [`SETUP_GUIDE.md`](SETUP_GUIDE.md) for camera navigation, physics shortcuts, and environment setup.  
+> 📖 **Dataset Studio Usage Guide**: See [`DATASET_STUDIO_GUIDE.md`](DATASET_STUDIO_GUIDE.md) for demonstration curation, multi-worker telemetry, and video playback.  
 > 📖 **Architectural Blueprint**: See [`dual_arm_architecture.md`](dual_arm_architecture.md) for complete control loops.
 
 ---

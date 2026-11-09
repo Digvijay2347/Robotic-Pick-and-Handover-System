@@ -119,7 +119,7 @@ flowchart LR
 ---
 
 ### Phase 1: Physics Scene & Multi-Body Simulation
-* **Primary Code**: [`assets/dual_ur10e_handover.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/assets/dual_ur10e_handover.xml)
+* **Primary Code**: [`assets/dual_ur10e_handover.xml`](../assets/dual_ur10e_handover.xml)
 * **MuJoCo MJCF Model**:
   * **Arm 1 (Giver)**: Base mounted at $[0.45, 0.45, 0.80]\text{ m}$, oriented facing the shelf ($+Y$).
   * **Arm 2 (Receiver)**: Base mounted at $[-0.45, -0.45, 0.80]\text{ m}$, oriented facing the sorting bin ($-Y$).
@@ -134,7 +134,7 @@ flowchart LR
 ---
 
 ### Phase 2: Kinematic Control & Minimum-Jerk Motion Engine
-* **Primary Code**: [`control/kinematics.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py), [`control/trajectory.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py), [`control/dual_arm_controller.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py)
+* **Primary Code**: [`control/kinematics.py`](../control/kinematics.py), [`control/trajectory.py`](../control/trajectory.py), [`control/dual_arm_controller.py`](../control/dual_arm_controller.py)
 * **Damped Least Squares (DLS) Inverse Kinematics with Null-Space Biasing**:
   To prevent kinematic singularities (wrist flips, elbow lockouts) when reaching into shelf compartments, the Jacobian is solved using adaptive Levenberg-Marquardt damping:
   $$J^\dagger = J^T \left( J J^T + \lambda^2 I \right)^{-1}$$
@@ -148,7 +148,7 @@ flowchart LR
 ---
 
 ### Phase 3: Synthetic 3D Perception & Grasp Synthesis
-* **Primary Code**: [`perception/sensor.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/sensor.py), [`perception/segmentation.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py), [`perception/grasp_planner.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planner.py)
+* **Primary Code**: [`perception/sensor.py`](../perception/sensor.py), [`perception/segmentation.py`](../perception/segmentation.py), [`perception/grasp_planner.py`](../perception/grasp_planner.py)
 * **Pinhole Camera Back-Projection**:
   Depth buffer values $d \in [0, 1]$ are linearized into metric Euclidean depth $Z$:
   $$Z = \frac{z_{\text{near}} z_{\text{far}}}{z_{\text{far}} - d (z_{\text{far}} - z_{\text{near}})}$$
@@ -162,7 +162,7 @@ flowchart LR
 ---
 
 ### Phase 4: Autonomous Expert Teacher (16-Stage Handover FSM)
-* **Primary Code**: [`fsm/handover_fsm.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py)
+* **Primary Code**: [`fsm/handover_fsm.py`](../fsm/handover_fsm.py)
 * **The 16-Stage Finite State Machine**:
   To collect thousands of training demonstrations without expensive physical teleoperation rigs, we built an autonomous scripted teacher:
 
@@ -190,7 +190,7 @@ stateDiagram-v2
 ---
 
 ### Phase 5: Gym-ALOHA Standardized Gymnasium Environment
-* **Primary Code**: [`envs/dual_ur10e_env.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/dual_ur10e_env.py)
+* **Primary Code**: [`envs/dual_ur10e_env.py`](../envs/dual_ur10e_env.py)
 * **Action Space**: Continuous 14-DOF Box $[-1.0, 1.0]^{14}$.
   * `action[0:6]`: Arm 1 normalized joint position targets.
   * `action[6]`: Gripper 1 binary command ($+1.0$ close, $-1.0$ open).
@@ -209,30 +209,30 @@ stateDiagram-v2
 ---
 
 ### Phase 6: Multiprocessing Demonstration Collection Pipeline
-* **Primary Code**: [`scripts/06_collect_demos_parallel.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos_parallel.py)
+* **Primary Code**: [`scripts/06_collect_demos_parallel.py`](../scripts/06_collect_demos_parallel.py)
 * **Parallel Architecture**:
   * Utilizes Python `multiprocessing` worker pools across all physical CPU cores.
   * Each worker launches an isolated MuJoCo physics instance, resets with randomized initial box poses ($X \in [0.42, 0.48]\text{ m}$, $Y \in [1.03, 1.07]\text{ m}$, $\text{yaw} \in [-20^\circ, 20^\circ]$), runs the Handover FSM, and records rollout frames.
 * **Dataset Artifacts**:
   * Stored in HDF5 / LeRobot formats under `data/`.
-  * Computes global mean and standard deviation tensors stored in [`data/meta/stats.json`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/data/meta/stats.json) for input/output z-score normalization:
+  * Computes global mean and standard deviation tensors stored in [`data/meta/stats.json`](../data/meta/stats.json) for input/output z-score normalization:
     $$q_{\text{norm}} = \frac{q - \mu_q}{\sigma_q}, \quad a = a_{\text{norm}} \cdot \sigma_a + \mu_a$$
 
 ---
 
 ### Phase 7: Action Chunking with Transformers (ACT) Policy & Training
-* **Primary Code**: [`policies/act_model.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_model.py), [`policies/act_config.yaml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_config.yaml), [`scripts/train_act.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/train_act.py)
+* **Primary Code**: [`policies/act_model.py`](../policies/act_model.py), [`policies/act_config.yaml`](../policies/act_config.yaml), [`scripts/train_act.py`](../scripts/train_act.py)
 * **Model Highlights**:
   * Multi-camera ResNet-18 visual backbones (fine-tuned with differential learning rates: $10^{-5}$ for backbone, $10^{-4}$ for Transformer).
   * Temporal chunk size: **$K = 50$** future action steps ($1.00\text{ s}$ horizon).
   * Latent style dimension: $z \in \mathbb{R}^{32}$.
   * Multi-modal conditioning: Fuses raw images, joint proprioception, 3D target centroid token, and physical contact state token.
-  * Checkpoint: [`outputs/act_handover/best_model_v3.pt`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/outputs/act_handover/best_model_v3.pt) ($225.16\text{ MB}$, Validation Loss: **$0.2808$**).
+  * Checkpoint: [`outputs/act_handover/best_model_v3.pt`](../outputs/act_handover/best_model_v3.pt) ($225.16\text{ MB}$, Validation Loss: **$0.2808$**).
 
 ---
 
 ### Phase 8: Closed-Loop Policy Evaluation & The 100% Success Hybrid Architecture
-* **Primary Code**: [`scripts/07_evaluate_policy.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/07_evaluate_policy.py)
+* **Primary Code**: [`scripts/07_evaluate_policy.py`](../scripts/07_evaluate_policy.py)
 * **The Hybrid Breakthrough**: Combines the high-capacity visual trajectory generation of ACT with an industrial **Geometric Custody Shield** (Guards 1, 2, and 3).
 * **Benchmark Result**: **100.0% completion rate** (Pick $\to$ Handover $\to$ Bin Placement) under full initial pose randomization in interactive MuJoCo evaluation.
 
@@ -353,7 +353,7 @@ When evaluating pure end-to-end ACT models in robotic manipulation, one observes
 ---
 
 ### The 3-Pillar Solution: Deterministic Custody Shield
-To permanently eliminate hit-and-trial retraining, we implemented a **3-Pillar Industrial Hybrid Architecture** in [`scripts/07_evaluate_policy.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/07_evaluate_policy.py):
+To permanently eliminate hit-and-trial retraining, we implemented a **3-Pillar Industrial Hybrid Architecture** in [`scripts/07_evaluate_policy.py`](../scripts/07_evaluate_policy.py):
 
 ```mermaid
 flowchart TD
@@ -414,31 +414,31 @@ During early trials, Arm 2 consistently held the cube at a fragile, chipped corn
 
 | Pipeline Component | Source File Path | Key Functions / Classes | Role & Technical Responsibility |
 | :--- | :--- | :--- | :--- |
-| **MuJoCo Scene** | [`assets/dual_ur10e_handover.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/assets/dual_ur10e_handover.xml) | MJCF XML schema | 14-DOF physics definition, camera bodies, sensor contact pairs, Robotiq 2F-85 silicone pads. |
-| **Kinematic Solvers** | [`control/kinematics.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py) | `RobotKinematics.compute_ik_step` | Damped Least Squares IK with nullspace projection toward rest angles. |
-| **Trajectory Engine**| [`control/trajectory.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py) | `QuinticTrajectoryGenerator` | 5th-order minimum-jerk trajectory interpolation. |
-| **Dual Controller**  | [`control/dual_arm_controller.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py) | `DualArmController.check_grasp` | Multi-geom normal force evaluation ($f_1, f_2$) and EE pose access. |
-| **Collision Checker**| [`control/collision_checker.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/collision_checker.py) | `CollisionChecker.check_collision` | Distance checks between arm capsules and shelf dividers. |
-| **3D Perception**     | [`perception/sensor.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/sensor.py) | `DepthLinearizer`, `PinholeProjection` | Linearizes MuJoCo depth buffer and projects to metric 3D point cloud. |
-| **Segmentation**     | [`perception/segmentation.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py) | `SceneSegmenter.segment_objects` | RANSAC shelf plane removal and DBSCAN object clustering. |
-| **Grasp Synthesis**  | [`perception/grasp_planner.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planner.py) | `GeometricGraspPlanner.plan_grasps`| PCA antipodal grasp orientation calculation. |
-| **Handover FSM**     | [`fsm/handover_fsm.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py) | `HandoverFSM.step` | 16-stage autonomous teacher for dataset collection. |
-| **Gym Environment**  | [`envs/dual_ur10e_env.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/dual_ur10e_env.py) | `DualUR10eHandoverEnv` | Gym-ALOHA 14-DOF environment with multi-camera rendering at 50 Hz. |
-| **Data Collector**   | [`scripts/06_collect_demos_parallel.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos_parallel.py) | `_worker_collection_task` | Multi-core parallel demonstration collector with domain randomization. |
-| **Dataset Stats**    | [`data/meta/stats.json`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/data/meta/stats.json) | Mean & Std Tensors | Normalization parameters for state `qpos` and action vectors. |
-| **ACT Model**        | [`policies/act_model.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_model.py) | `ACTPolicy`, `CVAEEncoder`, `VisualBackbone` | ResNet-18 tokenizer, C-VAE latent encoder, Transformer Decoder ($K=50$). |
-| **Model Config**     | [`policies/act_config.yaml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_config.yaml) | YAML configuration | Hyperparameters: $d_{\text{model}}=256$, heads=8, chunk=50, $\text{epochs}=25$. |
-| **Policy Training**  | [`scripts/train_act.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/train_act.py) | `train_act_model` | Multi-camera PyTorch training loop with $L_1$ and KL divergence loss. |
-| **Guarded Evaluation**| [`scripts/07_evaluate_policy.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/07_evaluate_policy.py) | `main` (Lines 334–425) | 100% Success Hybrid Policy Runner with Custody Shield Guards 1, 2, and 3. |
+| **MuJoCo Scene** | [`assets/dual_ur10e_handover.xml`](../assets/dual_ur10e_handover.xml) | MJCF XML schema | 14-DOF physics definition, camera bodies, sensor contact pairs, Robotiq 2F-85 silicone pads. |
+| **Kinematic Solvers** | [`control/kinematics.py`](../control/kinematics.py) | `RobotKinematics.compute_ik_step` | Damped Least Squares IK with nullspace projection toward rest angles. |
+| **Trajectory Engine**| [`control/trajectory.py`](../control/trajectory.py) | `QuinticTrajectoryGenerator` | 5th-order minimum-jerk trajectory interpolation. |
+| **Dual Controller**  | [`control/dual_arm_controller.py`](../control/dual_arm_controller.py) | `DualArmController.check_grasp` | Multi-geom normal force evaluation ($f_1, f_2$) and EE pose access. |
+| **Collision Checker**| [`control/collision_checker.py`](../control/collision_checker.py) | `CollisionChecker.check_collision` | Distance checks between arm capsules and shelf dividers. |
+| **3D Perception**     | [`perception/sensor.py`](../perception/sensor.py) | `DepthLinearizer`, `PinholeProjection` | Linearizes MuJoCo depth buffer and projects to metric 3D point cloud. |
+| **Segmentation**     | [`perception/segmentation.py`](../perception/segmentation.py) | `SceneSegmenter.segment_objects` | RANSAC shelf plane removal and DBSCAN object clustering. |
+| **Grasp Synthesis**  | [`perception/grasp_planner.py`](../perception/grasp_planner.py) | `GeometricGraspPlanner.plan_grasps`| PCA antipodal grasp orientation calculation. |
+| **Handover FSM**     | [`fsm/handover_fsm.py`](../fsm/handover_fsm.py) | `HandoverFSM.step` | 16-stage autonomous teacher for dataset collection. |
+| **Gym Environment**  | [`envs/dual_ur10e_env.py`](../envs/dual_ur10e_env.py) | `DualUR10eHandoverEnv` | Gym-ALOHA 14-DOF environment with multi-camera rendering at 50 Hz. |
+| **Data Collector**   | [`scripts/06_collect_demos_parallel.py`](../scripts/06_collect_demos_parallel.py) | `_worker_collection_task` | Multi-core parallel demonstration collector with domain randomization. |
+| **Dataset Stats**    | [`data/meta/stats.json`](../data/meta/stats.json) | Mean & Std Tensors | Normalization parameters for state `qpos` and action vectors. |
+| **ACT Model**        | [`policies/act_model.py`](../policies/act_model.py) | `ACTPolicy`, `CVAEEncoder`, `VisualBackbone` | ResNet-18 tokenizer, C-VAE latent encoder, Transformer Decoder ($K=50$). |
+| **Model Config**     | [`policies/act_config.yaml`](../policies/act_config.yaml) | YAML configuration | Hyperparameters: $d_{\text{model}}=256$, heads=8, chunk=50, $\text{epochs}=25$. |
+| **Policy Training**  | [`scripts/train_act.py`](../scripts/train_act.py) | `train_act_model` | Multi-camera PyTorch training loop with $L_1$ and KL divergence loss. |
+| **Guarded Evaluation**| [`scripts/07_evaluate_policy.py`](../scripts/07_evaluate_policy.py) | `main` (Lines 334–425) | 100% Success Hybrid Policy Runner with Custody Shield Guards 1, 2, and 3. |
 
 ---
 
 ## 7. Future Lifecycle & Scalability Guide
 
 ### Will Retraining Break the System?
-**No.** The Geometric Custody Shield in [`scripts/07_evaluate_policy.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/07_evaluate_policy.py) acts as a modular, safety-critical supervisor around the policy output.
+**No.** The Geometric Custody Shield in [`scripts/07_evaluate_policy.py`](../scripts/07_evaluate_policy.py) acts as a modular, safety-critical supervisor around the policy output.
 * If you train a new model (e.g. `best_model_v4.pt`), the custody shield wraps around the new model's action predictions identically.
-* Any new demonstrations collected with [`scripts/06_collect_demos_parallel.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos_parallel.py) will automatically incorporate our centroid-aligned kinematic targets, producing cleaner demonstration data.
+* Any new demonstrations collected with [`scripts/06_collect_demos_parallel.py`](../scripts/06_collect_demos_parallel.py) will automatically incorporate our centroid-aligned kinematic targets, producing cleaner demonstration data.
 
 ### Extending to New Tasks & Objects
 1. **Different Object Shapes (Spheres, Cylinders, Bottles)**:

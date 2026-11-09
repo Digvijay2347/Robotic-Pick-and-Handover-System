@@ -5,7 +5,7 @@
 ### Subsystem Scope
 Deep visuomotor policies—such as **Action Chunking with Transformers (ACT)** and **Diffusion Policy**—cannot be trained from scratch using classical reinforcement learning (RL) on complex 14-DOF bimanual tasks. Exploring a 16-stage continuous pick-and-handover sequence via random exploration has an astronomical sample complexity ($\sim 10^8$ steps).
 
-This module establishes the automated **Expert Demonstration Dataset Collection Engine**. It pairs our validated procedural expert ([HandoverFSM](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py)) with our standardized Gymnasium environment ([DualUR10eHandoverEnv](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/dual_ur10e_env.py)) to record high-quality, multi-camera, 14-DOF bimanual demonstration episodes formatted strictly according to the **Stanford ALOHA HDF5** and **Hugging Face LeRobot** standards.
+This module establishes the automated **Expert Demonstration Dataset Collection Engine**. It pairs our validated procedural expert ([HandoverFSM](../fsm/handover_fsm.py)) with our standardized Gymnasium environment ([DualUR10eHandoverEnv](../envs/dual_ur10e_env.py)) to record high-quality, multi-camera, 14-DOF bimanual demonstration episodes formatted strictly according to the **Stanford ALOHA HDF5** and **Hugging Face LeRobot** standards.
 
 ```mermaid
 graph TD
@@ -46,9 +46,9 @@ graph TD
 ## 2. Technical Architecture & Dataset Formats
 
 The implementation is located across three core files:
-- [dataset/recorder.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py): In-memory buffer and HDF5 / LeRobot exporter.
-- [dataset/dataset_utils.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py): Dataset inspection, integrity verifier, and composite video generator.
-- [scripts/06_collect_demos.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos.py): Batch data collection orchestrator.
+- [dataset/recorder.py](../dataset/recorder.py): In-memory buffer and HDF5 / LeRobot exporter.
+- [dataset/dataset_utils.py](../dataset/dataset_utils.py): Dataset inspection, integrity verifier, and composite video generator.
+- [scripts/06_collect_demos.py](../scripts/06_collect_demos.py): Batch data collection orchestrator.
 
 ---
 
@@ -92,7 +92,7 @@ handover_demos.hdf5
 
 ### B. Hugging Face LeRobot Format (v2.0)
 
-In [dataset/recorder.py#L225-L330](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py#L225-L330), the recorder exports LeRobot dataset files into `data/meta/`:
+In [dataset/recorder.py#L225-L330](../dataset/recorder.py#L225-L330), the recorder exports LeRobot dataset files into `data/meta/`:
 
 1. **`meta/info.json`**:
    Declares feature signatures, camera resolutions, and robot specifications:
@@ -123,7 +123,7 @@ In [dataset/recorder.py#L225-L330](file:///c:/Users/Digvijay%20singh/OneDrive/De
 
 ### C. Domain Randomization & Visual Diversity
 
-To prevent the learned policy from memorizing a single coordinate, [scripts/06_collect_demos.py#L125-L135](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos.py#L125-L135) perturbs the target object on every episode reset:
+To prevent the learned policy from memorizing a single coordinate, [scripts/06_collect_demos.py#L125-L135](../scripts/06_collect_demos.py#L125-L135) perturbs the target object on every episode reset:
 
 - **Lateral Translation ($X$)**: $0.45\text{ m} \pm 3.0\text{ cm} \implies [0.42, 0.48]\text{ m}$.
 - **Depth Translation ($Y$)**: $1.05\text{ m} \pm 2.0\text{ cm} \implies [1.03, 1.07]\text{ m}$.
@@ -137,7 +137,7 @@ Because the perception pipeline dynamically scans and segments the red cube on e
 
 Deep imitation learning is sensitive to "bad demonstrations." If a training dataset contains slipped grasps or collisions, the neural network learns those failure modes.
 
-In [dataset/recorder.py#L115-L130](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py#L115-L130), a strict quality gate automatically inspects every trial:
+In [dataset/recorder.py#L115-L130](../dataset/recorder.py#L115-L130), a strict quality gate automatically inspects every trial:
 1. **Bin Deposit Criterion**: Target object horizontal distance to bin center must be $< 15.0\text{ cm}$ and height $Z < 0.20\text{ m}$.
 2. **Dual Custody Verification**: Simultaneous grip holding ($F_n \ge 5.0\text{ N}$ on both arms) must have occurred.
 3. **Zero Collision Event**: No inter-arm or link-to-shelf collisions detected during the trajectory.
@@ -160,11 +160,11 @@ In [dataset/recorder.py#L115-L130](file:///c:/Users/Digvijay%20singh/OneDrive/De
 
 ## 4. Code Anatomy & File Locations
 
-- [dataset/recorder.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py): The [EpisodeRecorder](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/recorder.py#L16-L330) class managing episode buffering, HDF5 persistence, and LeRobot metadata export.
-- [dataset/dataset_utils.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py): The [inspect_dataset](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py#L22-L161) and [render_composite_video](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/dataset_utils.py#L164-L215) tools.
-- [dataset/__init__.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/dataset/__init__.py): Package exports for dataset utilities.
-- [scripts/06_collect_demos_parallel.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos_parallel.py): High-performance multi-process parallel collection runner.
-- [scripts/06_collect_demos.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/06_collect_demos.py): Single-worker sequential collection runner.
+- [dataset/recorder.py](../dataset/recorder.py): The [EpisodeRecorder](../dataset/recorder.py#L16-L330) class managing episode buffering, HDF5 persistence, and LeRobot metadata export.
+- [dataset/dataset_utils.py](../dataset/dataset_utils.py): The [inspect_dataset](../dataset/dataset_utils.py#L22-L161) and [render_composite_video](../dataset/dataset_utils.py#L164-L215) tools.
+- [dataset/__init__.py](../dataset/__init__.py): Package exports for dataset utilities.
+- [scripts/06_collect_demos_parallel.py](../scripts/06_collect_demos_parallel.py): High-performance multi-process parallel collection runner.
+- [scripts/06_collect_demos.py](../scripts/06_collect_demos.py): Single-worker sequential collection runner.
 
 ---
 

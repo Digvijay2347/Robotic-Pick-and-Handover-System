@@ -87,7 +87,7 @@ where $m_k \in \{0, 1\}$ is a boolean padding mask for boundary timesteps at epi
 
 ## 3. Code Implementation & File Structure
 
-The Phase 7 pipeline is organized into modular, production-grade components in [policies/](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies):
+The Phase 7 pipeline is organized into modular, production-grade components in [policies/](../policies):
 
 ```
 policies/
@@ -100,7 +100,7 @@ policies/
 
 ---
 
-### A. Model Architecture: [policies/act_model.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_model.py)
+### A. Model Architecture: [policies/act_model.py](../policies/act_model.py)
 
 1. **`VisualBackbone`**:
    - Uses pre-trained `torchvision.models.resnet18` without classification heads.
@@ -121,20 +121,20 @@ policies/
 
 ---
 
-### B. High-Throughput RAM Dataset: [policies/act_dataset.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_dataset.py)
+### B. High-Throughput RAM Dataset: [policies/act_dataset.py](../policies/act_dataset.py)
 
 #### The Problem: Disk Thrashing on Random-Access LZF
 Reading compressed LZF chunks on-the-fly with `DataLoader(shuffle=True)` causes random disk seeks and repeated decompression across thousands of steps, slowing training down to minutes per epoch.
 
 #### The Solution: Contiguous In-Memory Preloading
-- [ACTDataset](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_dataset.py) executes a single, contiguous sequential pass over [data/handover_demos.hdf5](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/data/handover_demos.hdf5) at initialization.
+- [ACTDataset](../policies/act_dataset.py) executes a single, contiguous sequential pass over [data/handover_demos.hdf5](../data/handover_demos.hdf5) at initialization.
 - Resizes images directly to target resolution ($112 \times 112$) and applies ImageNet normalization in batch.
 - Stores the entire preprocessed episode tensors in RAM (total memory footprint: **$580.68\text{ MB}$**).
 - During training, `__getitem__` performs instant slicing in RAM with **zero disk I/O**, zero decompression, and zero on-the-fly resizing.
 
 ---
 
-### C. Training Engine: [policies/train_act.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/train_act.py)
+### C. Training Engine: [policies/train_act.py](../policies/train_act.py)
 
 - **Optimizer**: AdamW with differential learning rates:
   - Visual Backbone: $1.0 \times 10^{-5}$
@@ -180,9 +180,9 @@ The policy was trained for **15 epochs** on the dual UR10e handover dataset usin
 ## 5. Artifact Verification & Checkpoint Integrity
 
 All trained checkpoints and telemetry were verified:
-1. **Best Model Checkpoint**: [outputs/act_handover/best_model.pt](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/outputs/act_handover/best_model.pt) (Contains weights, optimizer state, best validation loss, and complete configuration dictionary).
+1. **Best Model Checkpoint**: [outputs/act_handover/best_model.pt](../outputs/act_handover/best_model.pt) (Contains weights, optimizer state, best validation loss, and complete configuration dictionary).
 2. **Periodic Checkpoints**: `act_epoch_005.pt`, `act_epoch_010.pt`, `act_epoch_015.pt`.
-3. **Telemetry Logs**: [outputs/act_handover/training_history.json](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/outputs/act_handover/training_history.json).
+3. **Telemetry Logs**: [outputs/act_handover/training_history.json](../outputs/act_handover/training_history.json).
 4. **Closed-Loop Inference Verification**:
    - Reloaded `best_model.pt` from disk into `ACTPolicy`.
    - Executed forward inference `model.predict_action_chunk(dummy_imgs, dummy_qpos)`.
@@ -205,4 +205,4 @@ With the ACT policy trained and checkpointed, the policy is evaluated in the MuJ
 - **Scorecard**: Verified **100.0% completion rate** across randomized trials.
 
 For the exhaustive mathematical derivations, tensor breakdown, and architectural deep dive, see:
-* **[08_deep_dive_master_architecture.md](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/learning/08_deep_dive_master_architecture.md)**
+* **[08_deep_dive_master_architecture.md](08_deep_dive_master_architecture.md)**

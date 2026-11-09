@@ -104,29 +104,29 @@ The system is built on a modular 5-layer architecture, where each layer abstract
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Layer 1: Physics & Asset Foundation ([models/](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/))
+### Layer 1: Physics & Asset Foundation ([models/](../models/))
 - **Physics Core:** MuJoCo 3.x running `implicitfast` Euler integration at $dt = 0.002\text{ s}$ ($500\text{ Hz}$).
 - **Manipulators:** Dual Universal Robots UR10e with high-torque joint classes and calibrated velocity limits.
 - **Gripper Dynamics:** Robotiq 2F-85 underactuated parallel-jaw grippers modeled with closed kinematic loops (`equality/connect`). Commands are normalized $[0.0, 1.0]$.
 - **Contact Physics:** Elliptic friction cones with high tangential ($\mu = 1.2$) and torsional friction parameters to reproduce realistic elastomer pad behavior.
 
-### Layer 2: Kinematic Control Engine ([control/](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/))
+### Layer 2: Kinematic Control Engine ([control/](../control/))
 - **Damped Least Squares (DLS) IK:** Numerical Jacobian inversion with adaptive Tikhonov regularization $\lambda = 10^{-3}$, eliminating velocity singularities near workspace boundaries:
   $$\Delta \theta = J^T (J J^T + \lambda^2 I)^{-1} e$$
 - **Null-Space Optimization:** Employs the kinematic null-space $(I - J^\dagger J)$ to continuously pull arm joints toward ergonomic resting postures $q_{\text{rest}}$, avoiding joint limits.
 - **Trajectory Generators:** Quintic 5th-order polynomials ensuring zero boundary acceleration ($\dot{s}(0)=\ddot{s}(0)=\dot{s}(1)=\ddot{s}(1)=0$) combined with SLERP quaternion rotation.
 
-### Layer 3: Synthetic 3D Perception ([perception/](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/))
+### Layer 3: Synthetic 3D Perception ([perception/](../perception/))
 - **Camera Models:** Metric depth linearizer extracting metric point clouds from MuJoCo depth buffers using camera intrinsics ($f_x, f_y, c_x, c_y$).
 - **Scene Parsing:** Spatial 3D bounding box isolation $\to$ multi-pass RANSAC plane removal (stripping shelf shelves and vertical dividers) $\to$ DBSCAN Euclidean clustering.
 - **Antipodal Grasp Synthesis:** Evaluates surface normal pairs satisfying friction cones, applies gripper aperture constraints ($\le 85\text{ mm}$), and enforces shelf entry corridor constraints.
 
-### Layer 4: State Machine Orchestration ([fsm/](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/))
+### Layer 4: State Machine Orchestration ([fsm/](../fsm/))
 - **16 Discrete Operational Stages:** Governs the entire bimanual lifecycle.
 - **Fail-Safe Custody Interlock:** Handover release is gated by physical sensor feedback: both arms must report simultaneous contact force $> 5\text{ N}$.
 - **Recovery Routines:** In-flight loss of custody halts motion instantly, returning arms to safe home postures without workspace collisions.
 
-### Layer 5: Gym-ALOHA Learning Bridge ([envs/](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/))
+### Layer 5: Gym-ALOHA Learning Bridge ([envs/](../envs/))
 - **Action Space:** 14-DOF continuous vector normalized in $[-1.0, 1.0]^{14}$ (6 arm1 + 1 grip1 + 6 arm2 + 1 grip2).
 - **Observation Space:** Structured nested Dict with `qpos` (14), `qvel` (14), and synchronized multi-camera feeds (`top`: $480 \times 640$, `wrist1`: $240 \times 320$, `wrist2`: $240 \times 320$).
 - **Multi-Rate Substepping:** 10 physics substeps per step translates 500 Hz MuJoCo integration into a rock-solid 50 Hz policy control rate.
@@ -191,6 +191,6 @@ Across the implemented milestone validation suites, the system achieved the foll
 ```
 
 For the exhaustive, mathematical, and line-by-line engineering breakdown of the ACT policy, tensor schemas, and the 100% success hybrid architecture, refer to:
-* **[08_deep_dive_master_architecture.md](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/learning/08_deep_dive_master_architecture.md)**
+* **[08_deep_dive_master_architecture.md](08_deep_dive_master_architecture.md)**
 
 The platform provides a complete, production-grade robotics testbed capable of autonomous vision-guided picking, fail-safe bimanual transfer, and end-to-end visuomotor policy training with zero proprietary hardware requirements.

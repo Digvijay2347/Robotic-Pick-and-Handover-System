@@ -76,7 +76,7 @@ Step 7: Arm 1 retracts 10 cm away from handover zone.
 Step 8: Arm 2 confirms sole custody -> Transports to storage bin.
 ```
 
-In [fsm/handover_fsm.py#L520-L545](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py#L520-L545):
+In [fsm/handover_fsm.py#L520-L545](../fsm/handover_fsm.py#L520-L545):
 ```python
 elif self.current_state == HandoverState.DUAL_GRASP:
     # Verify BOTH arms register physical contact force > 5 N
@@ -135,10 +135,10 @@ During real-time interactive testing with `--viewer`, four operational faults we
 
 ## 4. Code Anatomy & File Locations
 
-- [fsm/handover_fsm.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py): The 16-stage orchestrator ([HandoverFSM](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_fsm.py#L37-L755)).
-- [fsm/handover_states.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_states.py): State enumerations ([HandoverState](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/fsm/handover_states.py#L12-L35)), telemetry logs, and cycle metrics.
-- [control/collision_checker.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/collision_checker.py): Inter-arm collision monitoring during simultaneous dual-arm motion.
-- [scripts/04_run_scripted_handover.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/04_run_scripted_handover.py): Execution script with `--viewer`, multi-cycle benchmarking, and telemetry.
+- [fsm/handover_fsm.py](../fsm/handover_fsm.py): The 16-stage orchestrator ([HandoverFSM](../fsm/handover_fsm.py#L37-L755)).
+- [fsm/handover_states.py](../fsm/handover_states.py): State enumerations ([HandoverState](../fsm/handover_states.py#L12-L35)), telemetry logs, and cycle metrics.
+- [control/collision_checker.py](../control/collision_checker.py): Inter-arm collision monitoring during simultaneous dual-arm motion.
+- [scripts/04_run_scripted_handover.py](../scripts/04_run_scripted_handover.py): Execution script with `--viewer`, multi-cycle benchmarking, and telemetry.
 
 ---
 

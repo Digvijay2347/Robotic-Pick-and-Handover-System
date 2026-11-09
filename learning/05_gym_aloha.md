@@ -51,9 +51,9 @@ graph LR
 ## 2. Technical Architecture: How We Built It
 
 The implementation is located across three core files:
-- [envs/dual_ur10e_env.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/dual_ur10e_env.py): Core environment implementation.
-- [envs/__init__.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/__init__.py): Gymnasium environment registry.
-- [scripts/05_test_gym_env.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/05_test_gym_env.py): Validation suite and acceptance test runner.
+- [envs/dual_ur10e_env.py](../envs/dual_ur10e_env.py): Core environment implementation.
+- [envs/__init__.py](../envs/__init__.py): Gymnasium environment registry.
+- [scripts/05_test_gym_env.py](../scripts/05_test_gym_env.py): Validation suite and acceptance test runner.
 
 ---
 
@@ -197,7 +197,7 @@ if self.randomize_on_reset and self.target_joint_id != -1:
 
 ## 3. Registered Environments in Gymnasium
 
-In [envs/__init__.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/envs/__init__.py), we registered two environment flavors:
+In [envs/__init__.py](../envs/__init__.py), we registered two environment flavors:
 
 1. **`DualUR10eHandover-v0` (Visual ALOHA Standard)**:
    - Observation space: `qpos` (14), `qvel` (14), and `images` (`top`, `wrist1`, `wrist2`).

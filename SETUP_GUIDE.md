@@ -131,19 +131,19 @@ The simulation scene (`models/dual_ur10e_scene.xml`) consists of:
 - **EE Site**: `arm2_ee_site` centered between the silicone finger pads.
 - **Sensors**: Forward-looking wrist camera (`arm2_wrist_cam`) mounted on the flange.
 
-#### 3. Wall Shelf / Cupboard ([`models/shelf.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/shelf.xml))
+#### 3. Wall Shelf / Cupboard ([`models/shelf.xml`](models/shelf.xml))
 - **Placement**: `pos="0.0, 1.2, 0.0"` m (centered in front of the arms).
 - **Compartments**: 12 independent compartments (4 columns × 3 shelf levels).
 - **Dimensions**: Width $1.2\text{ m}$, Depth $0.35\text{ m}$, Height $0.9\text{ m}$.
 - **Materials**: Natural wood grain shelf plates with dark graphite vertical dividers and support legs.
 
-#### 4. Physical Manipulable Objects ([`models/objects.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/objects.xml))
+#### 4. Physical Manipulable Objects ([`models/objects.xml`](models/objects.xml))
 - 📦 **Target Red Box** (`target_object`): Size $5\times 5\times 10\text{ cm}$, mass $0.15\text{ kg}$, high friction coefficient ($1.2$). Sits on Row 2, Column 1 (`[-0.15, 1.05, 0.90]`).
 - 🥫 **Green Soda Can** (`can_object`): Radius $2.8\text{ cm}$, height $9.6\text{ cm}$, mass $0.12\text{ kg}$. Sits on Row 2, Column 2 (`[0.15, 1.05, 0.90]`).
 - 🧴 **Blue Flask/Bottle** (`bottle_object`): Dual cylinder geometry with narrow neck, mass $0.10\text{ kg}$. Sits on Row 1, Column 0 (`[-0.45, 1.05, 0.54]`).
 - 🎲 **Yellow Cube** (`cube_object`): Size $5\times 5\times 5\text{ cm}$, mass $0.08\text{ kg}$. Sits on Row 1, Column 3 (`[0.45, 1.05, 0.54]`).
 
-#### 5. Storage Drop Bin ([`models/bin.xml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/bin.xml))
+#### 5. Storage Drop Bin ([`models/bin.xml`](models/bin.xml))
 - **Placement**: `pos="0.0, -0.8, 0.0"` m (behind the arms).
 - **Features**: 4 chamfered slanted guide rims along the top rim so dropped objects slide securely into the basin.
 - **Target Site**: `bin_drop_target` marked inside the bottom plate.
@@ -177,11 +177,11 @@ The system includes 4 camera views that are captured offscreen during simulation
 3. **`arm1_wrist_cam`** ($640\times 480$, $75^\circ$ FOV): First-person view looking forward from Arm 1's gripper.
 4. **`arm2_wrist_cam`** ($640\times 480$, $75^\circ$ FOV): First-person view looking forward from Arm 2's gripper.
 
-Snapshots from all 4 sensors are automatically generated in [`recordings/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/):
-- [`recordings/overhead_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/overhead_cam.png)
-- [`recordings/shelf_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/shelf_cam.png)
-- [`recordings/arm1_wrist_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/arm1_wrist_cam.png)
-- [`recordings/arm2_wrist_cam.png`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/recordings/arm2_wrist_cam.png)
+Snapshots from all 4 sensors are automatically generated in [`recordings/`](recordings/):
+- [`recordings/overhead_cam.png`](recordings/overhead_cam.png)
+- [`recordings/shelf_cam.png`](recordings/shelf_cam.png)
+- [`recordings/arm1_wrist_cam.png`](recordings/arm1_wrist_cam.png)
+- [`recordings/arm2_wrist_cam.png`](recordings/arm2_wrist_cam.png)
 
 To re-capture fresh snapshots at any time, run:
 ```powershell
@@ -211,11 +211,11 @@ The physics timestep is set to $0.002\text{ s}$ ($500\text{ Hz}$). On this syste
 ## 6. Kinematics Architecture & Autonomous Pick Pipeline
 
 The kinematics and Cartesian control stack provides:
-- **[`control/kinematics.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py)**: Damped Least Squares (DLS) Jacobian IK solver, closed-loop numeric iteration, automatic 2π branch unwrapping, null-space postural biasing, and physical joint limit clamping.
-- **[`control/trajectory.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py)**: 5th-order minimum-jerk quintic polynomial interpolator (`s(tau) = 10 tau^3 - 15 tau^4 + 6 tau^5`) and SLERP orientation interpolator.
-- **[`control/dual_arm_controller.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py)**: Unified 14-DOF actuator coordinator, normalized gripper command interface `[0.0, 1.0]`, and MuJoCo contact dynamics normal force verifier (`check_grasp`).
-- **[`control/collision_checker.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/collision_checker.py)**: Inter-arm proximity and link-to-shelf clearance monitor.
-- **[`scripts/02_test_ik_reach.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/02_test_ik_reach.py)**: End-to-end 6-stage autonomous pick test.
+- **[`control/kinematics.py`](control/kinematics.py)**: Damped Least Squares (DLS) Jacobian IK solver, closed-loop numeric iteration, automatic 2π branch unwrapping, null-space postural biasing, and physical joint limit clamping.
+- **[`control/trajectory.py`](control/trajectory.py)**: 5th-order minimum-jerk quintic polynomial interpolator (`s(tau) = 10 tau^3 - 15 tau^4 + 6 tau^5`) and SLERP orientation interpolator.
+- **[`control/dual_arm_controller.py`](control/dual_arm_controller.py)**: Unified 14-DOF actuator coordinator, normalized gripper command interface `[0.0, 1.0]`, and MuJoCo contact dynamics normal force verifier (`check_grasp`).
+- **[`control/collision_checker.py`](control/collision_checker.py)**: Inter-arm proximity and link-to-shelf clearance monitor.
+- **[`scripts/02_test_ik_reach.py`](scripts/02_test_ik_reach.py)**: End-to-end 6-stage autonomous pick test.
 
 ### Pick Pipeline Stages:
 1. `1_PREGRASP` (2.0s): Arm moves smoothly from home resting pose to 15cm standoff in front of shelf compartment.
@@ -230,13 +230,13 @@ The kinematics and Cartesian control stack provides:
 ## 7. Vision Perception & 6-DOF Grasp Planning Stack
 
 The autonomous synthetic perception and 6-DOF grasp planning pipeline operates purely from `shelf_cam` RGB-D sensory input:
-- **[`perception/pointcloud.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/pointcloud.py)**: Camera intrinsic derivation, synchronized linear metric depth rendering, pinhole back-projection to 3D World coordinates ($P_w = R_{\text{cam}} P_c + T_{\text{cam}}$), and Open3D integration.
-- **[`perception/segmentation.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py)**: 3D shelf ROI cropping, iterative RANSAC plane stripping for shelf boards and dividers, DBSCAN Euclidean clustering, and color signature matching (`find_target`).
-- **[`perception/grasp_planners/`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planners/)**:
+- **[`perception/pointcloud.py`](perception/pointcloud.py)**: Camera intrinsic derivation, synchronized linear metric depth rendering, pinhole back-projection to 3D World coordinates ($P_w = R_{\text{cam}} P_c + T_{\text{cam}}$), and Open3D integration.
+- **[`perception/segmentation.py`](perception/segmentation.py)**: 3D shelf ROI cropping, iterative RANSAC plane stripping for shelf boards and dividers, DBSCAN Euclidean clustering, and color signature matching (`find_target`).
+- **[`perception/grasp_planners/`](perception/grasp_planners/)**:
   - `GeometricGraspPlanner`: Native antipodal parallel-jaw planner using PCA decomposition, approach corridor alignment ($+Y$), horizontal finger pad orientation, and aperture sizing.
   - `GraspGenAdapter`: ML adapter for NVlabs/GraspGen with automatic geometric fallback.
-- **[`perception/grasp_filter.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_filter.py)**: DLS numerical IK reachability and shelf collision filtering.
-- **[`scripts/03_test_perception.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/03_test_perception.py)**: Full end-to-end perception-driven pick pipeline.
+- **[`perception/grasp_filter.py`](perception/grasp_filter.py)**: DLS numerical IK reachability and shelf collision filtering.
+- **[`scripts/03_test_perception.py`](scripts/03_test_perception.py)**: Full end-to-end perception-driven pick pipeline.
 
 ### Running the Perception-Driven Pick:
 

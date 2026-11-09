@@ -53,7 +53,7 @@ Hardcoded pick positions fail the moment an object shifts by even 2 centimeters.
 
 ### A. Metric Depth & Pinhole Back-Projection
 
-MuJoCo's offscreen renderer outputs a normalized non-linear depth buffer $z_{\text{buffer}} \in [0, 1]$. In [perception/pointcloud.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/pointcloud.py), this is linearized into metric distance (meters) using the camera's near and far clipping planes ($z_{\text{near}} = 0.01\text{ m}, z_{\text{far}} = 5.0\text{ m}$):
+MuJoCo's offscreen renderer outputs a normalized non-linear depth buffer $z_{\text{buffer}} \in [0, 1]$. In [perception/pointcloud.py](../perception/pointcloud.py), this is linearized into metric distance (meters) using the camera's near and far clipping planes ($z_{\text{near}} = 0.01\text{ m}, z_{\text{far}} = 5.0\text{ m}$):
 
 $$d(u, v) = \frac{z_{\text{near}} \cdot z_{\text{far}}}{z_{\text{far}} - z_{\text{buffer}}(u, v) \cdot (z_{\text{far}} - z_{\text{near}})}$$
 
@@ -80,7 +80,7 @@ The raw scene cloud contains over $150,000$ points, mostly belonging to the room
    $$X \in [-0.62, 0.62]\text{ m}, \quad Y \in [0.90, 1.25]\text{ m}, \quad Z \in [0.45, 1.45]\text{ m}$$
 
 2. **Iterative RANSAC Plane Removal**:
-   In [perception/segmentation.py#L56-L95](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py#L56-L95), RANSAC plane fitting iteratively fits and removes planar surfaces (distance threshold $1.5\text{ cm}$):
+   In [perception/segmentation.py#L56-L95](../perception/segmentation.py#L56-L95), RANSAC plane fitting iteratively fits and removes planar surfaces (distance threshold $1.5\text{ cm}$):
    - Pass 1 & 2: Horizontal shelf floorboards.
    - Pass 3, 4, 5: Vertical compartment dividers.
 
@@ -108,7 +108,7 @@ Once the target object cluster is isolated:
 
 ### D. Kinematic & Collision Filtering
 
-A grasp candidate is useless if the robot's arm cannot reach it without colliding. In [perception/grasp_filter.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_filter.py):
+A grasp candidate is useless if the robot's arm cannot reach it without colliding. In [perception/grasp_filter.py](../perception/grasp_filter.py):
 1. **IK Feasibility**: Solves DLS numerical IK for both the pre-grasp standoff ($8\text{ cm}$ back) and the final grasp pose.
 2. **Collision Validation**: Queries `CollisionChecker` to verify link-to-shelf clearance $> 2.0\text{ cm}$.
 3. **Composite Scoring**:
@@ -131,14 +131,14 @@ A grasp candidate is useless if the robot's arm cannot reach it without collidin
 
 ## 4. Code Anatomy & File Locations
 
-- [perception/camera_sensor.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/camera_sensor.py): Camera rendering and raw buffer extraction.
-- [perception/pointcloud.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/pointcloud.py): Pinhole projection, depth linearization, and coordinate frame transformation.
-- [perception/segmentation.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py): RANSAC plane removal, DBSCAN clustering, and object centroid localization.
-- [perception/grasp_planners/base_planner.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planners/base_planner.py): Abstract grasp planner interface.
-- [perception/grasp_planners/geometric_planner.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planners/geometric_planner.py): Native surface-normal and PCA antipodal grasp generator.
-- [perception/grasp_planners/graspgen_adapter.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_planners/graspgen_adapter.py): Deep learning diffusion model adapter.
-- [perception/grasp_filter.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/grasp_filter.py): Kinematic reachability and collision filtering.
-- [scripts/03_test_perception.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/03_test_perception.py): End-to-end perception-driven pick test script.
+- [perception/camera_sensor.py](../perception/camera_sensor.py): Camera rendering and raw buffer extraction.
+- [perception/pointcloud.py](../perception/pointcloud.py): Pinhole projection, depth linearization, and coordinate frame transformation.
+- [perception/segmentation.py](../perception/segmentation.py): RANSAC plane removal, DBSCAN clustering, and object centroid localization.
+- [perception/grasp_planners/base_planner.py](../perception/grasp_planners/base_planner.py): Abstract grasp planner interface.
+- [perception/grasp_planners/geometric_planner.py](../perception/grasp_planners/geometric_planner.py): Native surface-normal and PCA antipodal grasp generator.
+- [perception/grasp_planners/graspgen_adapter.py](../perception/grasp_planners/graspgen_adapter.py): Deep learning diffusion model adapter.
+- [perception/grasp_filter.py](../perception/grasp_filter.py): Kinematic reachability and collision filtering.
+- [scripts/03_test_perception.py](../scripts/03_test_perception.py): End-to-end perception-driven pick test script.
 
 ---
 

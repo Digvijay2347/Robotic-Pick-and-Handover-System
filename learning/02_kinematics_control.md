@@ -59,7 +59,7 @@ Given a desired end-effector twist error $e = [e_{\text{pos}}, e_{\text{rot}}]^T
 
    $$\Delta \theta = J^T (J J^T + \lambda^2 I)^{-1} e$$
 
-   In [control/kinematics.py#L125-L135](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py#L125-L135):
+   In [control/kinematics.py#L125-L135](../control/kinematics.py#L125-L135):
    ```python
    # DLS Jacobian Inversion with Tikhonov damping lambda
    JJT = J @ J.T
@@ -79,7 +79,7 @@ We project a secondary gradient that pulls joints toward an ergonomic neutral re
 $$\Delta \theta_{\text{null}} = (I - J^\dagger J) \cdot k_{\text{null}} (q_{\text{rest}} - q)$$
 $$\Delta \theta_{\text{total}} = \Delta \theta_{\text{task}} + \Delta \theta_{\text{null}}$$
 
-In [control/kinematics.py#L137-L141](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py#L137-L141):
+In [control/kinematics.py#L137-L141](../control/kinematics.py#L137-L141):
 ```python
 # Null-space projection: bias joints toward nominal resting posture
 I_n = np.eye(6)
@@ -94,7 +94,7 @@ This prevents the robot's elbow or shoulder from drifting toward mechanical end-
 
 ### C. Minimum-Jerk Trajectory Generation
 
-Robots moving with high accelerations or discontinuous jerks excite vibrations, cause gripper slippage, and damage actuators. In [control/trajectory.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py), we implemented **5th-order (quintic) minimum-jerk polynomials**:
+Robots moving with high accelerations or discontinuous jerks excite vibrations, cause gripper slippage, and damage actuators. In [control/trajectory.py](../control/trajectory.py), we implemented **5th-order (quintic) minimum-jerk polynomials**:
 
 $$s(\tau) = 10\tau^3 - 15\tau^4 + 6\tau^5, \quad \tau = \frac{t}{T} \in [0, 1]$$
 
@@ -110,7 +110,7 @@ $$q(t) = \text{SLERP}(q_{\text{start}}, q_{\text{target}}, s(\tau))$$
 
 ### D. Contact Physics & Grasp Verification
 
-Rather than assuming an object is grasped when the gripper closes, [control/dual_arm_controller.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py) directly queries the **MuJoCo physics contact manifold** `data.contact`:
+Rather than assuming an object is grasped when the gripper closes, [control/dual_arm_controller.py](../control/dual_arm_controller.py) directly queries the **MuJoCo physics contact manifold** `data.contact`:
 
 ```python
 def check_grasp(self, arm_id: int, object_name: str) -> Tuple[bool, float]:
@@ -140,11 +140,11 @@ Criteria for Verified Custody:
 
 ## 4. Code Anatomy & File Locations
 
-- [control/kinematics.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py): Core kinematics class ([RobotKinematics](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/kinematics.py#L17-L220)), Jacobian computation, and DLS numerical IK solver.
-- [control/dual_arm_controller.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/dual_arm_controller.py): Joint target dispatching, actuator scaling, and physical grasp verification.
-- [control/trajectory.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/trajectory.py): Minimum-jerk polynomial generators and SLERP rotation interpolation.
-- [control/collision_checker.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/control/collision_checker.py): Real-time distance monitoring between arm links and environment geoms.
-- [scripts/02_test_ik_reach.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/02_test_ik_reach.py): Kinematics reachability test and single-arm baseline pick execution.
+- [control/kinematics.py](../control/kinematics.py): Core kinematics class ([RobotKinematics](../control/kinematics.py#L17-L220)), Jacobian computation, and DLS numerical IK solver.
+- [control/dual_arm_controller.py](../control/dual_arm_controller.py): Joint target dispatching, actuator scaling, and physical grasp verification.
+- [control/trajectory.py](../control/trajectory.py): Minimum-jerk polynomial generators and SLERP rotation interpolation.
+- [control/collision_checker.py](../control/collision_checker.py): Real-time distance monitoring between arm links and environment geoms.
+- [scripts/02_test_ik_reach.py](../scripts/02_test_ik_reach.py): Kinematics reachability test and single-arm baseline pick execution.
 
 ---
 

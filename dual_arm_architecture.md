@@ -1160,7 +1160,7 @@ prod2/
 
 ### 10.1 System Motivation & Root Cause Analysis
 
-Closed-loop testing of the pure visual imitation ACT policy ([`best_model_pure_act.pt`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/outputs/act_handover/best_model_pure_act.pt)) revealed two primary physical failure modes during autonomous rollouts:
+Closed-loop testing of the pure visual imitation ACT policy ([`best_model_pure_act.pt`](outputs/act_handover/best_model_pure_act.pt)) revealed two primary physical failure modes during autonomous rollouts:
 
 1. **Spatial Discretization Bottleneck & Gripper Clipping**:
    - The multi-camera visual inputs are downsampled to $112 \times 112$ pixels and encoded through ResNet-18 backbones into a $7 \times 7$ spatial grid of 49 feature tokens per camera.
@@ -1176,7 +1176,7 @@ Closed-loop testing of the pure visual imitation ACT policy ([`best_model_pure_a
 ### 10.2 Architectural Solution: Hybrid 3D Perception & Contact Conditioning
 
 To resolve these failure modes while respecting the non-CUDA host environment (Windows 11 CPU / Intel Arc 140V), the architecture integrates:
-- **Fast CPU 3D Point-Cloud Perception** ([`perception/pointcloud.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/pointcloud.py) + [`perception/segmentation.py`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/perception/segmentation.py)) providing explicit target centroid coordinates $[X_c, Y_c, Z_c]$ with sub-centimeter accuracy ($6.45\text{ mm}$ error).
+- **Fast CPU 3D Point-Cloud Perception** ([`perception/pointcloud.py`](perception/pointcloud.py) + [`perception/segmentation.py`](perception/segmentation.py)) providing explicit target centroid coordinates $[X_c, Y_c, Z_c]$ with sub-centimeter accuracy ($6.45\text{ mm}$ error).
 - **Physical Contact Sensors**: Binary contact state vector $[held_1, held_2] \in \{0, 1\}^2$ derived from MuJoCo finger pad normal forces ($f_N \ge 10\text{ N}$).
 - **Goal & Contact Token Embeddings**: Dedicated learned projection layers mapping 3D coordinates and contact states directly into the ACT transformer token sequence.
 

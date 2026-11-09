@@ -132,7 +132,7 @@ The training module implements an **Action Chunking with Transformers (ACT)** po
 
 ### ⚙️ YAML Hyperparameters Reference (`policies/act_config.yaml`)
 
-You can edit [`policies/act_config.yaml`](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/policies/act_config.yaml) to customize model architecture and training parameters:
+You can edit [`policies/act_config.yaml`](policies/act_config.yaml) to customize model architecture and training parameters:
 
 ```yaml
 dataset:

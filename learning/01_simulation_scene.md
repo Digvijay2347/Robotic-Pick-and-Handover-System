@@ -60,7 +60,7 @@ To integrate two identical UR10e arms and Robotiq grippers in one MuJoCo scene w
 - Arm 1 elements use prefix: `arm1_` (e.g., `arm1_base`, `arm1_shoulder_pan_joint`, `arm1_wrist_3_link`).
 - Arm 2 elements use prefix: `arm2_` (e.g., `arm2_base`, `arm2_shoulder_pan_joint`, `arm2_wrist_3_link`).
 
-In [models/dual_ur10e_scene.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/dual_ur10e_scene.xml#L130-L148):
+In [models/dual_ur10e_scene.xml](../models/dual_ur10e_scene.xml#L130-L148):
 ```xml
 <!-- Arm 1 Base Pedestal & Included Subtree -->
 <body name="arm1_pedestal" pos="0.6 0.2 0.375">
@@ -133,13 +133,13 @@ To prevent slippery grasping and ensure firm gripping forces:
 
 ## 4. Code Anatomy & File Locations
 
-- [models/dual_ur10e_scene.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/dual_ur10e_scene.xml): Primary MJCF scene connecting all sub-models.
-- [models/ur10e_arm1.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/ur10e_arm1.xml): Arm 1 kinematics, inertial properties, and Robotiq 2F-85 coupling.
-- [models/ur10e_arm2.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/ur10e_arm2.xml): Arm 2 kinematics, inertial properties, and Robotiq 2F-85 coupling.
-- [models/shelf.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/shelf.xml): 4×3 multi-compartment wall shelf with vertical and horizontal dividers.
-- [models/bin.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/bin.xml): Storage bin with chamfered internal slopes.
-- [models/objects.xml](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/models/objects.xml): Target box and clutter items.
-- [scripts/01_test_scene.py](file:///c:/Users/Digvijay%20singh/OneDrive/Desktop/Motion/prod2/scripts/01_test_scene.py): Scene verification and interactive rendering script.
+- [models/dual_ur10e_scene.xml](../models/dual_ur10e_scene.xml): Primary MJCF scene connecting all sub-models.
+- [models/ur10e_arm1.xml](../models/ur10e_arm1.xml): Arm 1 kinematics, inertial properties, and Robotiq 2F-85 coupling.
+- [models/ur10e_arm2.xml](../models/ur10e_arm2.xml): Arm 2 kinematics, inertial properties, and Robotiq 2F-85 coupling.
+- [models/shelf.xml](../models/shelf.xml): 4×3 multi-compartment wall shelf with vertical and horizontal dividers.
+- [models/bin.xml](../models/bin.xml): Storage bin with chamfered internal slopes.
+- [models/objects.xml](../models/objects.xml): Target box and clutter items.
+- [scripts/01_test_scene.py](../scripts/01_test_scene.py): Scene verification and interactive rendering script.
 
 ---
 
