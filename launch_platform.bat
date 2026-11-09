@@ -9,3 +9,4 @@ if exist .venv\Scripts\python.exe (
     python launch_platform.py %*
 )
 pause
+

@@ -409,6 +409,9 @@ async function setGripperCommand(position) {
 // ==========================================================================
 async function triggerAction(action) {
     try {
+        if (action === "start") {
+            logConsole("[POLICY] Launching ACT Neural Policy (best_model_v3.pt) with Custody Shield Interlocks...", "log-info");
+        }
         const res = await fetch(`/api/fsm/${action}`, { method: "POST" });
         const data = await res.json();
         if (data.status === "ok") {

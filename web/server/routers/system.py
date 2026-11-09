@@ -61,9 +61,16 @@ def get_system_status() -> Dict[str, Any]:
 
 @router.post("/fsm/start", summary="Start autonomous pick-and-handover execution")
 def start_fsm() -> Dict[str, Any]:
-    """Triggers autonomous execution of the 16-stage pick-and-handover cycle."""
+    """Triggers autonomous execution of the trained ACT Neural Policy (best_model_v3.pt)."""
     service = SimulationService.get_instance()
     return service.start_fsm_cycle()
+
+
+@router.post("/policy/start", summary="Start autonomous ACT neural policy handover")
+def start_policy() -> Dict[str, Any]:
+    """Triggers autonomous execution of the trained ACT Neural Policy (best_model_v3.pt)."""
+    service = SimulationService.get_instance()
+    return service.start_policy_cycle()
 
 
 @router.post("/fsm/stop", summary="Emergency stop execution")

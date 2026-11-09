@@ -144,3 +144,4 @@ flowchart TD
 1. **Model Safety**: Baseline `outputs/act_handover/best_model.pt` must strictly NEVER be modified or overwritten.
 2. **Subprocess Isolation**: All background jobs must execute in isolated threads with non-blocking stream pipes and proper Windows `taskkill` termination.
 3. **No External Network Dependencies**: All styles, scripts, and fonts continue to work offline with robust fallbacks.
+
