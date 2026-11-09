@@ -141,7 +141,7 @@ async function loadDatasetOverview() {
         const navBadgeEl = document.getElementById("navBadgeDemos");
 
         if (totalEpEl) totalEpEl.textContent = data.total_episodes || "50";
-        if (totalFramesEl) totalFramesEl.textContent = (data.total_frames || 32450).toLocaleString();
+        if (totalFramesEl) totalFramesEl.textContent = (data.total_frames || 21200).toLocaleString();
         if (storageSizeEl) storageSizeEl.textContent = `${Math.round(data.size_mb || 532)}M`;
         if (navBadgeEl) navBadgeEl.textContent = `${data.total_episodes || 50} Demos`;
 

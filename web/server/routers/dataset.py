@@ -74,7 +74,7 @@ def get_dataset_overview() -> Dict[str, Any]:
 
     # 3. Pull HDF5 metadata
     total_episodes = info_data.get("total_episodes", 50)
-    total_frames = info_data.get("total_frames", 32450)
+    total_frames = info_data.get("total_frames", 21200)
     fps = info_data.get("fps", 25)
 
     action_names = info_data.get("features", {}).get("action", {}).get("names", [
@@ -143,12 +143,12 @@ def list_episodes(
                     episodes.append({
                         "episode_id": f"demo_{item.get('episode_index', 0)}",
                         "episode_index": item.get("episode_index", 0),
-                        "steps": item.get("length", 649),
-                        "duration_sec": round(item.get("duration_sec", 25.96), 2),
-                        "success": item.get("success", True),
+                        "steps": item.get("length", 424),
+                        "duration_sec": round(item.get("duration_sec", 16.96), 2),
+                        "success": bool(item.get("success", True)),
                         "distance_to_bin_m": round(item.get("distance_to_bin_m", 0.0158), 4),
                         "distance_to_bin_cm": round(item.get("distance_to_bin_m", 0.0158) * 100, 2),
-                        "dual_hold_confirmed": item.get("dual_hold_confirmed", True),
+                        "dual_hold_confirmed": bool(item.get("dual_hold_confirmed", True)),
                         "worker_id": item.get("worker_id", 0),
                         "task": item.get("task", "Pick red cube from shelf, handover to Arm 2, and place in storage bin"),
                     })

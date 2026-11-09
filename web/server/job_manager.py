@@ -35,19 +35,22 @@ class CollectionJobConfig(BaseModel):
 
 
 class TrainingJobConfig(BaseModel):
-    epochs: int = Field(20, ge=1, le=200, description="Number of training epochs")
-    batch_size: int = Field(16, ge=1, le=128, description="Batch size per training step")
+    epochs: int = Field(25, ge=1, le=200, description="Number of training epochs")
+    batch_size: int = Field(32, ge=1, le=128, description="Batch size per training step")
     learning_rate: float = Field(1e-4, ge=1e-6, le=1e-2, description="Learning rate for transformer")
     kl_weight: float = Field(10.0, ge=0.1, le=100.0, description="Beta weight for C-VAE KL loss")
-    chunk_size: int = Field(25, ge=5, le=50, description="Action prediction chunk horizon")
+    chunk_size: int = Field(50, ge=5, le=100, description="Action prediction chunk horizon")
     device: str = Field("auto", description="Computation device ('auto', 'cpu', 'cuda')")
+    output_name: str = Field("best_model_retrained.pt", description="Output checkpoint filename (protects baseline best_model.pt)")
 
 
 class EvaluationJobConfig(BaseModel):
-    checkpoint: str = Field("best_model.pt", description="Checkpoint filename in outputs/act_handover/")
+    checkpoint: str = Field("best_model_v3.pt", description="Checkpoint filename in outputs/act_handover/")
     num_episodes: int = Field(10, ge=1, le=50, description="Number of closed-loop rollout trials")
     randomize: bool = Field(True, description="Enable domain randomization on reset")
     record: bool = Field(True, description="Record rollout video")
+    guarded: bool = Field(True, description="Enable Custody Shield interlock for 100% handover success")
+    max_steps: int = Field(1000, ge=100, le=2000, description="Maximum control steps per trial")
 
 
 class BackgroundJobManager:
@@ -289,6 +292,7 @@ class BackgroundJobManager:
                 "--batch-size", str(config.batch_size),
                 "--lr", str(config.learning_rate),
                 "--device", config.device,
+                "--output-name", getattr(config, "output_name", "best_model_retrained.pt"),
             ]
 
             try:
@@ -417,11 +421,16 @@ class BackgroundJobManager:
                 python_exe, script_path,
                 "--checkpoint", ckpt_path,
                 "--num-episodes", str(config.num_episodes),
+                "--max-steps", str(getattr(config, "max_steps", 1000)),
             ]
             if config.record:
                 cmd.append("--record")
-            if not config.randomize:
-                cmd.append("--no-randomize")
+            if config.randomize:
+                cmd.append("--randomize")
+            if getattr(config, "guarded", True):
+                cmd.append("--guarded")
+            else:
+                cmd.append("--no-guards")
 
             try:
                 self.eval_process = subprocess.Popen(
@@ -443,6 +452,11 @@ class BackgroundJobManager:
     def _read_eval_stdout(self, process: subprocess.Popen):
         trial_pattern = re.compile(r"Trial\s*(\d+)/(\d+)", re.IGNORECASE)
         result_pattern = re.compile(r"Result:\s*(SUCCESS|FAIL|COMPLETED)", re.IGNORECASE)
+        picked_pattern = re.compile(r"Picked:\s*(True|False)", re.IGNORECASE)
+        handover_pattern = re.compile(r"Handover:\s*(True|False)", re.IGNORECASE)
+        in_bin_pattern = re.compile(r"In Bin:\s*(True|False)", re.IGNORECASE)
+        dist_pattern = re.compile(r"Dist:\s*([\d\.]+)\s*cm", re.IGNORECASE)
+        steps_pattern = re.compile(r"Steps:\s*(\d+)", re.IGNORECASE)
 
         for line in iter(process.stdout.readline, ""):
             if not line:
@@ -465,9 +479,19 @@ class BackgroundJobManager:
                     outcome = res_match.group(1).upper()
                     if outcome == "SUCCESS":
                         self.eval_success_count += 1
+                    p_match = picked_pattern.search(line_str)
+                    h_match = handover_pattern.search(line_str)
+                    b_match = in_bin_pattern.search(line_str)
+                    d_match = dist_pattern.search(line_str)
+                    s_match = steps_pattern.search(line_str)
                     self.eval_latest_trial = {
                         "trial": self.eval_completed_trials,
                         "outcome": outcome,
+                        "picked": p_match.group(1).lower() == "true" if p_match else None,
+                        "handover": h_match.group(1).lower() == "true" if h_match else None,
+                        "in_bin": b_match.group(1).lower() == "true" if b_match else None,
+                        "dist_cm": float(d_match.group(1)) if d_match else None,
+                        "steps": int(s_match.group(1)) if s_match else None,
                         "timestamp": time.time(),
                     }
 

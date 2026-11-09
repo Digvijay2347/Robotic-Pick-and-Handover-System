@@ -200,7 +200,7 @@ function showStateInspector(stateKey) {
 // RADIAL SVG CONTACT FORCE GAUGES (F1, F2) & DUAL CUSTODY INTERLOCK
 // ==========================================================================
 function updateForceGauges(f1, f2, dualHoldConfirmed) {
-    const maxForce = 30.0;
+    const maxForce = 200.0;
     const circum = 314; // 2 * pi * r (r=50)
 
     // Arm 1 Force Gauge
@@ -212,12 +212,12 @@ function updateForceGauges(f1, f2, dualHoldConfirmed) {
 
     if (circle1) {
         circle1.style.strokeDashoffset = offset1;
-        circle1.style.stroke = f1Clamped >= 15.0 ? "var(--accent-green)" : (f1Clamped >= 5.0 ? "var(--accent-amber)" : "var(--accent-cyan)");
+        circle1.style.stroke = f1Clamped >= 50.0 ? "var(--accent-green)" : (f1Clamped >= 15.0 ? "var(--accent-amber)" : "var(--accent-cyan)");
     }
     if (num1) num1.textContent = f1.toFixed(1);
     if (status1) {
-        status1.textContent = f1 >= 15.0 ? "DUAL CUSTODY (SECURE)" : (f1 >= 2.0 ? "CONTACT ENGAGED" : "OPEN / NO CONTACT");
-        status1.style.color = f1 >= 15.0 ? "var(--accent-green)" : (f1 >= 2.0 ? "var(--accent-amber)" : "var(--text-secondary)");
+        status1.textContent = f1 >= 50.0 ? "SECURE CLAMP (>=50N)" : (f1 >= 10.0 ? "CONTACT ENGAGED" : "OPEN / NO CONTACT");
+        status1.style.color = f1 >= 50.0 ? "var(--accent-green)" : (f1 >= 10.0 ? "var(--accent-amber)" : "var(--text-secondary)");
     }
 
     // Arm 2 Force Gauge
@@ -229,12 +229,12 @@ function updateForceGauges(f1, f2, dualHoldConfirmed) {
 
     if (circle2) {
         circle2.style.strokeDashoffset = offset2;
-        circle2.style.stroke = f2Clamped >= 15.0 ? "var(--accent-green)" : (f2Clamped >= 5.0 ? "var(--accent-amber)" : "var(--accent-cyan)");
+        circle2.style.stroke = f2Clamped >= 50.0 ? "var(--accent-green)" : (f2Clamped >= 15.0 ? "var(--accent-amber)" : "var(--accent-cyan)");
     }
     if (num2) num2.textContent = f2.toFixed(1);
     if (status2) {
-        status2.textContent = f2 >= 15.0 ? "DUAL CUSTODY (SECURE)" : (f2 >= 2.0 ? "CONTACT ENGAGED" : "OPEN / NO CONTACT");
-        status2.style.color = f2 >= 15.0 ? "var(--accent-green)" : (f2 >= 2.0 ? "var(--accent-amber)" : "var(--text-secondary)");
+        status2.textContent = f2 >= 50.0 ? "SECURE CLAMP (>=50N)" : (f2 >= 10.0 ? "CONTACT ENGAGED" : "OPEN / NO CONTACT");
+        status2.style.color = f2 >= 50.0 ? "var(--accent-green)" : (f2 >= 10.0 ? "var(--accent-amber)" : "var(--text-secondary)");
     }
 
     // Dual Custody Interlock Gate Status

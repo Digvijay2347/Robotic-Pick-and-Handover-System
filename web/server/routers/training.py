@@ -60,9 +60,11 @@ class ConfigUpdateRequest(BaseModel):
     lr_transformer: Optional[float] = Field(None, ge=1e-6, le=1e-2)
     lr_backbone: Optional[float] = Field(None, ge=1e-7, le=1e-3)
     kl_weight: Optional[float] = Field(None, ge=0.1, le=100.0)
-    chunk_size: Optional[int] = Field(None, ge=5, le=50)
+    chunk_size: Optional[int] = Field(None, ge=5, le=100)
     num_epochs: Optional[int] = Field(None, ge=1, le=200)
     device: Optional[str] = Field(None)
+    use_goal_conditioning: Optional[bool] = Field(None)
+    use_contact_conditioning: Optional[bool] = Field(None)
 
 
 @router.post("/training/config")
@@ -93,6 +95,10 @@ def update_training_config(req: ConfigUpdateRequest) -> Dict[str, Any]:
             cfg["training"]["device"] = req.device
         if req.chunk_size is not None:
             cfg["model"]["chunk_size"] = req.chunk_size
+        if req.use_goal_conditioning is not None:
+            cfg["model"]["use_goal_conditioning"] = req.use_goal_conditioning
+        if req.use_contact_conditioning is not None:
+            cfg["model"]["use_contact_conditioning"] = req.use_contact_conditioning
 
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             yaml.safe_dump(cfg, f, default_flow_style=False, sort_keys=False)
@@ -106,13 +112,23 @@ def update_training_config(req: ConfigUpdateRequest) -> Dict[str, Any]:
 # 2. TRAINING HISTORY & CURVES ENDPOINTS
 # ==============================================================================
 
+def resolve_history_path() -> Optional[str]:
+    """Finds the most relevant training history JSON file (v3, standard, or v2)."""
+    for fname in ["training_history_v3.json", "training_history.json", "training_history_v2.json"]:
+        p = os.path.join(OUTPUTS_DIR, fname)
+        if os.path.exists(p):
+            return p
+    return None
+
+
 @router.get("/training/history")
 def get_training_history() -> Dict[str, Any]:
     """Returns training and validation curves (Total Loss, L1 Action Error, C-VAE KL Loss)."""
-    if not os.path.exists(HISTORY_PATH):
-        raise HTTPException(status_code=404, detail="Training history not found at outputs/act_handover/training_history.json")
+    hist_path = resolve_history_path()
+    if not hist_path:
+        raise HTTPException(status_code=404, detail="Training history not found in outputs/act_handover/")
     try:
-        with open(HISTORY_PATH, "r", encoding="utf-8") as f:
+        with open(hist_path, "r", encoding="utf-8") as f:
             history = json.load(f)
 
         num_epochs = len(history.get("epoch", []))
@@ -158,15 +174,28 @@ def list_checkpoints() -> Dict[str, Any]:
             size_mb = round(stat.st_size / (1024 * 1024), 2)
             mtime = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
 
-            is_best = fname in ["best_model.pt", "best_model_random.pt"]
+            is_best = fname in ["best_model_v3.pt", "best_model.pt", "best_model_random.pt"]
             epoch_val = None
             match = epoch_regex.search(fname)
             if match:
                 epoch_val = int(match.group(1))
+            elif "v3" in fname:
+                epoch_val = 25
+            elif "v2" in fname:
+                epoch_val = 20
             elif is_best:
-                epoch_val = 20  # Best checkpoint corresponds to highest epoch
+                epoch_val = 20
 
-            arch_name = "ACT Policy (50 Randomized Demos)" if "random" in fname else "ACT (Transformer + C-VAE + ResNet-18)"
+            if "v3" in fname:
+                arch_name = "ACT Policy v3 (100% Success Guarded - K=50, Goal+Contact Conditioned)"
+            elif "v2" in fname:
+                arch_name = "ACT Policy v2 (Intermediate Handover)"
+            elif "random" in fname:
+                arch_name = "ACT Policy (50 Randomized Demos)"
+            elif fname == "best_model.pt":
+                arch_name = "ACT Baseline (Legacy K=25 Benchmark)"
+            else:
+                arch_name = "ACT (Transformer + C-VAE + ResNet-18)"
 
             checkpoints.append({
                 "filename": fname,
@@ -174,12 +203,16 @@ def list_checkpoints() -> Dict[str, Any]:
                 "size_mb": size_mb,
                 "modified": mtime,
                 "is_best": is_best,
+                "is_active": fname == "best_model_v3.pt",
                 "epoch": epoch_val,
                 "architecture": arch_name,
             })
 
-    # Sort checkpoints: best first, then by epoch descending
-    checkpoints.sort(key=lambda c: (0 if c["is_best"] else 1, -(c["epoch"] or 0)))
+    # Sort checkpoints: best_model_v3.pt first, then is_best, then by epoch descending
+    checkpoints.sort(key=lambda c: (
+        0 if c["filename"] == "best_model_v3.pt" else (1 if c["is_best"] else 2),
+        -(c["epoch"] or 0)
+    ))
 
     return {
         "status": "ok",

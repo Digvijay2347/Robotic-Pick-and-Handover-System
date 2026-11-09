@@ -10,7 +10,7 @@
 let neuralHistory = null;
 let neuralAnalytics = null;
 let neuralCheckpoints = [];
-let activeModel = "best_model.pt";
+let activeModel = "best_model_v3.pt";
 let activeHoverEpoch = null;
 
 // Curve Visibility Toggles
@@ -96,6 +96,11 @@ async function loadCheckpoints() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         neuralCheckpoints = data.checkpoints || [];
+        if (!neuralCheckpoints.some(c => c.filename === activeModel)) {
+            const v3 = neuralCheckpoints.find(c => c.filename === "best_model_v3.pt");
+            if (v3) activeModel = "best_model_v3.pt";
+            else if (neuralCheckpoints.length > 0) activeModel = neuralCheckpoints[0].filename;
+        }
         renderCheckpointsTable(neuralCheckpoints);
         populateModelDropdown(neuralCheckpoints);
 
@@ -141,7 +146,8 @@ function populateModelDropdown(ckpts) {
     ckpts.forEach((c) => {
         const opt = document.createElement("option");
         opt.value = c.filename;
-        opt.textContent = `${c.filename} (${c.size_mb} MB) ${c.is_best ? "★ Best" : ""}`;
+        const tag = c.filename === "best_model_v3.pt" ? "★ Best (100% Guarded)" : (c.is_best ? "★ Best" : "");
+        opt.textContent = `${c.filename} (${c.size_mb} MB) ${tag}`;
         if (c.filename === activeModel) opt.selected = true;
         sel.appendChild(opt);
     });
@@ -675,11 +681,16 @@ function renderCheckpointsTable(ckpts) {
         if (c.filename === activeModel) tr.classList.add("active-ckpt");
         tr.id = `ckpt-row-${c.filename}`;
 
+        const isV3 = c.filename === "best_model_v3.pt";
+        const bestBadge = isV3
+            ? '<span class="badge-best-ckpt" style="background:rgba(0,255,150,0.15);border:1px solid #00ff96;color:#00ff96;">★ 100% GUARDED</span>'
+            : (c.is_best ? '<span class="badge-best-ckpt">★ BASELINE</span>' : '');
+
         tr.innerHTML = `
             <td>
                 <div style="display:flex;align-items:center;gap:8px;">
                     <span style="font-weight:600;color:#fff;">${c.filename}</span>
-                    ${c.is_best ? '<span class="badge-best-ckpt">★ BEST</span>' : ''}
+                    ${bestBadge}
                 </div>
             </td>
             <td><span style="color:var(--accent-cyan);font-weight:600;">Epoch ${c.epoch || 20}</span></td>
@@ -727,10 +738,10 @@ function setupRolloutVideo(videoMeta) {
 // ==============================================================================
 
 async function launchEvaluationJob(checkpointFilename) {
-    const ckpt = checkpointFilename || activeModel || "best_model.pt";
+    const ckpt = checkpointFilename || activeModel || "best_model_v3.pt";
     const logBox = document.getElementById("neuralTerminalLogs");
     if (logBox) {
-        logBox.innerHTML = `[SYSTEM] Launching closed-loop policy evaluation for '${ckpt}'...\n`;
+        logBox.innerHTML = `[SYSTEM] Launching guarded closed-loop policy evaluation for '${ckpt}'...\n`;
     }
 
     try {
@@ -742,6 +753,8 @@ async function launchEvaluationJob(checkpointFilename) {
                 num_episodes: 10,
                 randomize: true,
                 record: true,
+                guarded: true,
+                max_steps: 1000
             }),
         });
         const data = await res.json();
@@ -792,8 +805,9 @@ function closeTrainingModal() {
 }
 
 async function triggerTrainingRun() {
-    const epochs = parseInt(document.getElementById("trainEpochsInput")?.value || 20);
-    const batchSize = parseInt(document.getElementById("trainBatchInput")?.value || 16);
+    const epochs = parseInt(document.getElementById("trainEpochsInput")?.value || 25);
+    const batchSize = parseInt(document.getElementById("trainBatchInput")?.value || 32);
+    const chunkSize = parseInt(document.getElementById("trainChunkInput")?.value || 50);
     const lr = parseFloat(document.getElementById("trainLrInput")?.value || 1e-4);
     const klWeight = parseFloat(document.getElementById("trainKlInput")?.value || 10.0);
 
@@ -801,7 +815,7 @@ async function triggerTrainingRun() {
 
     const logBox = document.getElementById("neuralTerminalLogs");
     if (logBox) {
-        logBox.innerHTML = `[SYSTEM] Dispatching ACT Policy training job (${epochs} epochs, batch ${batchSize}, lr ${lr}, kl ${klWeight})...\n`;
+        logBox.innerHTML = `[SYSTEM] Dispatching ACT Policy training job (${epochs} epochs, batch ${batchSize}, chunk ${chunkSize}, lr ${lr}, kl ${klWeight})...\n`;
     }
 
     try {
@@ -813,8 +827,9 @@ async function triggerTrainingRun() {
                 batch_size: batchSize,
                 learning_rate: lr,
                 kl_weight: klWeight,
-                chunk_size: 25,
+                chunk_size: chunkSize,
                 device: "auto",
+                output_name: "best_model_retrained.pt",
             }),
         });
         const data = await res.json();

@@ -35,34 +35,37 @@ def test_01_training_config():
     cfg = data["config"]
     assert "model" in cfg
     assert "training" in cfg
-    assert cfg["model"]["chunk_size"] == 25
+    assert cfg["model"]["chunk_size"] == 50
     assert cfg["model"]["latent_dim"] == 32
     assert cfg["model"]["backbone"] == "resnet18"
-    assert cfg["training"]["batch_size"] == 16
-    print("[PASS] Test 01 Passed: ACT Configuration loaded accurately.")
+    assert cfg["model"].get("use_goal_conditioning") is True
+    assert cfg["model"].get("use_contact_conditioning") is True
+    assert cfg["training"]["batch_size"] == 32
+    print("[PASS] Test 01 Passed: ACT Configuration loaded accurately with K=50 and Multi-Modal Conditioning.")
 
 
 def test_02_training_history():
-    """Verify 20 epochs of real training loss curves are served."""
+    """Verify real training loss curves are served."""
     res = client.get("/api/training/history")
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "ok"
-    assert data["num_epochs"] == 20
+    num_ep = data["num_epochs"]
+    assert num_ep >= 20
     metrics = data["metrics"]
-    assert len(metrics["epoch"]) == 20
-    assert len(metrics["train_total_loss"]) == 20
-    assert len(metrics["val_total_loss"]) == 20
-    assert len(metrics["train_l1_loss"]) == 20
-    assert len(metrics["val_l1_loss"]) == 20
-    assert len(metrics["train_kl_loss"]) == 20
-    assert len(metrics["val_kl_loss"]) == 20
+    assert len(metrics["epoch"]) == num_ep
+    assert len(metrics["train_total_loss"]) == num_ep
+    assert len(metrics["val_total_loss"]) == num_ep
+    assert len(metrics["train_l1_loss"]) == num_ep
+    assert len(metrics["val_l1_loss"]) == num_ep
+    assert len(metrics["train_kl_loss"]) == num_ep
+    assert len(metrics["val_kl_loss"]) == num_ep
 
     # Loss convergence check: initial loss > final loss
     assert metrics["train_total_loss"][0] > metrics["train_total_loss"][-1]
     assert metrics["val_total_loss"][0] > metrics["val_total_loss"][-1]
-    assert data["latest"]["epoch"] == 20
-    print("[PASS] Test 02 Passed: Real ACT training history verified across 20 epochs.")
+    assert data["latest"]["epoch"] == num_ep
+    print(f"[PASS] Test 02 Passed: Real ACT training history verified across {num_ep} epochs.")
 
 
 def test_03_checkpoint_explorer():
@@ -75,10 +78,12 @@ def test_03_checkpoint_explorer():
     ckpts = data["checkpoints"]
 
     best_ckpt = next((c for c in ckpts if c["is_best"]), None)
-    assert best_ckpt is not None, "best_model.pt must be identified as is_best=True"
-    assert best_ckpt["filename"] == "best_model.pt"
-    assert best_ckpt["size_mb"] > 200  # ~225 MB
-    print(f"[PASS] Test 03 Passed: {len(ckpts)} model checkpoints discovered (Best: {best_ckpt['filename']}, {best_ckpt['size_mb']} MB).")
+    assert best_ckpt is not None, "is_best model must be identified"
+    assert best_ckpt["filename"] in ["best_model_v3.pt", "best_model.pt"]
+    assert best_ckpt["size_mb"] > 200
+    assert any(c["filename"] == "best_model_v3.pt" for c in ckpts)
+    assert any(c["filename"] == "best_model.pt" for c in ckpts)
+    print(f"[PASS] Test 03 Passed: {len(ckpts)} model checkpoints discovered (Primary: {best_ckpt['filename']}, {best_ckpt['size_mb']} MB).")
 
 
 def test_04_training_status():
